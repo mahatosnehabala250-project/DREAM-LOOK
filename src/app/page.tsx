@@ -13,6 +13,7 @@ import {
   Zap, Target, DollarSign, Layers, Shield,
   Plus, ArrowUp, ArrowDown, Calculator, Star,
   Bell, Trophy, Activity, History, ChevronDown, Eye, EyeOff,
+  Receipt, Percent, Wallet, CircleDot, Flame, Store, XCircle,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ import {
   Tooltip as RTooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays,
+  format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, addMonths,
 } from 'date-fns';
 
 // ─── TYPES ───────────────────────────────────────────────────────
@@ -117,6 +118,11 @@ interface AnalyticsData {
     totalRevenue: number; totalEarnings: number; avgPerTransaction: number;
   }>;
 }
+interface Expense {
+  id: string; storeId: string; category: string; description: string;
+  amount: number; expenseDate: string;
+  store: { id: string; name: string; address: string; phone: string; city: string; isActive: boolean };
+}
 interface SettlementData {
   employee: { id: string; name: string; role: string; store: { id: string; name: string } | null };
   period: { from: string; to: string };
@@ -172,6 +178,17 @@ function getInitials(name: string) {
 
 const TIME_SLOTS = generateTimeSlots();
 const SERVICE_CATEGORIES = ['ALL', 'HAIRCUT', 'COLOR', 'TREATMENT', 'SPA', 'BRIDAL'];
+const EXPENSE_CATEGORIES = ['RENT', 'UTILITIES', 'SALARY', 'SUPPLIES', 'MAINTENANCE', 'MARKETING', 'OTHER'];
+
+const EXPENSE_CATEGORY_CONFIG: Record<string, { color: string; bg: string; darkBg: string }> = {
+  RENT: { color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-100 dark:bg-amber-900/40', darkBg: 'bg-amber-100 dark:bg-amber-900/40' },
+  UTILITIES: { color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-100 dark:bg-blue-900/40', darkBg: 'bg-blue-100 dark:bg-blue-900/40' },
+  SALARY: { color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-100 dark:bg-emerald-900/40', darkBg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+  SUPPLIES: { color: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-900/40', darkBg: 'bg-violet-100 dark:bg-violet-900/40' },
+  MAINTENANCE: { color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-100 dark:bg-orange-900/40', darkBg: 'bg-orange-100 dark:bg-orange-900/40' },
+  MARKETING: { color: 'text-pink-700 dark:text-pink-300', bg: 'bg-pink-100 dark:bg-pink-900/40', darkBg: 'bg-pink-100 dark:bg-pink-900/40' },
+  OTHER: { color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-900/40', darkBg: 'bg-gray-100 dark:bg-gray-900/40' },
+};
 
 const STORE_GRADIENTS = [
   'from-rose-500 to-pink-600',
@@ -1260,29 +1277,35 @@ function CustomerAppointmentTracker() {
   const [trackPhone, setTrackPhone] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [lookupDone, setLookupDone] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState<string | null>(null);
 
-  const { data: customers } = useFetch<Customer[]>('/api/salon/customers');
-
-  const matchedCustomer = useMemo(() => {
-    if (!trackPhone.trim() || trackPhone.length < 10) return null;
-    return (customers || []).find(c => c.phone === trackPhone);
-  }, [customers, trackPhone]);
-
-  const customerId = matchedCustomer?.id || '';
-
-  // Get all appointments across stores
-  const { data: allAppointments, loading: allLoading } = useFetch<Appointment[]>(
-    customerId && lookupDone ? `/api/salon/appointments?date=2020-01-01` : null
+  // Fetch appointments directly by phone number
+  const { data: phoneAppts, loading: allLoading, refetch: refetchAppts } = useFetch<Appointment[]>(
+    trackPhone.length >= 10 && lookupDone ? `/api/salon/appointments?phone=${trackPhone}` : null
   );
 
-  const filteredAppts = useMemo(() => {
-    if (!allAppointments || !customerId) return [];
-    return allAppointments.filter(a => a.customerId === customerId);
-  }, [allAppointments, customerId]);
+  const matchedCustomer = useMemo(() => {
+    if (!phoneAppts || phoneAppts.length === 0) return null;
+    return phoneAppts[0]?.customer || null;
+  }, [phoneAppts]);
 
   const handleLookup = useCallback(() => {
     if (trackPhone.length >= 10) setLookupDone(true);
   }, [trackPhone]);
+
+  const handleCancelAppointment = useCallback(async (aptId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    setCancelLoading(aptId);
+    try {
+      await apiPatch(`/api/salon/appointments/${aptId}`, { status: 'CANCELLED' });
+      toast.success('Appointment cancelled successfully');
+      refetchAppts();
+    } catch (e) {
+      toast.error('Failed to cancel appointment', { description: (e as Error).message });
+    } finally {
+      setCancelLoading(null);
+    }
+  }, [refetchAppts]);
 
   return (
     <GlassCard className="overflow-hidden">
@@ -1334,7 +1357,7 @@ function CustomerAppointmentTracker() {
               </div>
             ) : allLoading ? (
               <div className="space-y-2 py-2">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
-            ) : filteredAppts.length === 0 ? (
+            ) : (phoneAppts || []).length === 0 ? (
               <div className="text-center py-6">
                 <div className="w-12 h-12 rounded-2xl bg-muted/80 flex items-center justify-center mx-auto mb-3">
                   <Calendar className="w-6 h-6 text-muted-foreground" />
@@ -1354,7 +1377,7 @@ function CustomerAppointmentTracker() {
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                  {filteredAppts.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, 5).map((apt) => (
+                  {(phoneAppts || []).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, 5).map((apt) => (
                     <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30 flex items-center justify-center shrink-0">
                         <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
@@ -1370,9 +1393,17 @@ function CustomerAppointmentTracker() {
                         </div>
                         <p className="text-[10px] text-muted-foreground">{apt.store?.name}</p>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
                         <StatusBadge status={apt.status} />
-                        <p className="text-xs font-medium text-rose-600 dark:text-rose-400 mt-1">{formatCurrency(apt.service?.price || 0)}</p>
+                        <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{formatCurrency(apt.service?.price || 0)}</p>
+                        {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && (
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            disabled={cancelLoading === apt.id}
+                            onClick={() => handleCancelAppointment(apt.id)}>
+                            {cancelLoading === apt.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                            Cancel
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1474,6 +1505,9 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
         <StatCard icon={TrendingUp} label="This Week" value={formatCurrency(animatedWeek)} sub={`${(weekTransactions || []).length} services`} gradient="bg-gradient-to-r from-blue-500 to-indigo-500" />
         <StatCard icon={Target} label="This Month" value={formatCurrency(animatedMonth)} sub={`${(monthTransactions || []).length} services`} gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
       </div>
+
+      {/* Monthly Target */}
+      <EarningsGoalTracker currentEarnings={monthEarnings} employeeRole={currentEmp?.role || 'STYLIST'} />
 
       {/* How Commission Works + Daily Earnings Sparkline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2289,6 +2323,331 @@ function ManagerNewApptDialog({ open, onClose, storeId, onSuccess }: {
 }
 
 // ─── STORE COMPARISON DASHBOARD ──────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// EARNINGS GOAL TRACKER
+// ═══════════════════════════════════════════════════════════════════
+function EarningsGoalTracker({ currentEarnings, employeeRole }: { currentEarnings: number; employeeRole: string }) {
+  const target = employeeRole === 'MANAGER' ? 50000 : 20000;
+  const percentage = Math.min((currentEarnings / target) * 100, 100);
+  const isOnTrack = percentage >= 50;
+  const isWarning = percentage >= 25 && percentage < 50;
+  const isCritical = percentage < 25;
+
+  const statusColor = isOnTrack ? 'text-emerald-600 dark:text-emerald-400' : isWarning ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+  const ringColor = isOnTrack ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444';
+  const statusLabel = isOnTrack ? 'On Track' : isWarning ? 'Keep Going' : 'Needs Attention';
+  const statusBg = isOnTrack ? 'bg-emerald-100 dark:bg-emerald-900/40' : isWarning ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-red-100 dark:bg-red-900/40';
+
+  // SVG ring parameters
+  const radius = 45;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+
+  return (
+    <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-rose-500">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* SVG Progress Ring */}
+            <div className="relative w-24 h-24 shrink-0">
+              <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" className="text-muted/30 dark:text-muted/20" strokeWidth="8" />
+                <motion.circle
+                  cx="50" cy="50" r={radius} fill="none"
+                  stroke={ringColor}
+                  strokeWidth="8" strokeLinecap="round"
+                  initial={{ strokeDasharray: `0 ${circumference}` }}
+                  animate={{ strokeDasharray }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-lg font-bold ${statusColor}`}>{Math.round(percentage)}%</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <CircleDot className="w-4 h-4 text-rose-500" />
+                Monthly Target
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                You&apos;ve earned <span className="font-semibold text-foreground">{formatCurrency(currentEarnings)}</span> of <span className="font-semibold text-foreground">{formatCurrency(target)}</span> target
+              </p>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBg} ${statusColor}`}>
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-right shrink-0 hidden sm:block">
+            <p className="text-xs text-muted-foreground">Target</p>
+            <p className="text-sm font-bold">{formatCurrency(target)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Remaining</p>
+            <p className={`text-sm font-bold ${statusColor}`}>{formatCurrency(Math.max(0, target - currentEarnings))}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPENSE CATEGORY BADGE
+// ═══════════════════════════════════════════════════════════════════
+function ExpenseCategoryBadge({ category }: { category: string }) {
+  const config = EXPENSE_CATEGORY_CONFIG[category] || EXPENSE_CATEGORY_CONFIG.OTHER;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${config.bg} ${config.color}`}>
+      {category.charAt(0) + category.slice(1).toLowerCase()}
+    </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// KPI DASHBOARD
+// ═══════════════════════════════════════════════════════════════════
+function KPIDashboard({ monthAnalytics }: { monthAnalytics: AnalyticsData | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const { data: monthExpenses } = useFetch<Expense[]>(`/api/salon/expenses?from=${monthStart}&to=${today}`);
+
+  const totalExpenses = useMemo(() => (monthExpenses || []).reduce((s, e) => s + e.amount, 0), [monthExpenses]);
+  const ownerShare = monthAnalytics?.totalOwnerShare || 0;
+  const netProfit = ownerShare - totalExpenses;
+
+  const avgTicketSize = useMemo(() => {
+    if (!monthAnalytics || monthAnalytics.totalTransactions === 0) return 0;
+    return monthAnalytics.totalRevenue / monthAnalytics.totalTransactions;
+  }, [monthAnalytics]);
+
+  const topService = useMemo(() => {
+    if (!monthAnalytics?.servicePopularity?.length) return null;
+    return monthAnalytics.servicePopularity.reduce((top, s) => s.count > top.count ? s : top, monthAnalytics.servicePopularity[0]);
+  }, [monthAnalytics]);
+
+  const busiestStore = useMemo(() => {
+    if (!monthAnalytics?.employeePerformance?.length) return null;
+    const storeMap: Record<string, { name: string; transactions: number }> = {};
+    // We don't have store in performance data directly, so use the top employee's info
+    const topEmp = monthAnalytics.employeePerformance.reduce((top, e) => e.transactions > top.transactions ? e : top, monthAnalytics.employeePerformance[0]);
+    return { name: topEmp.employeeName, transactions: topEmp.transactions };
+  }, [monthAnalytics]);
+
+  const kpis = [
+    {
+      icon: Wallet, label: 'Net Profit', value: formatCurrency(netProfit),
+      sub: `Revenue ${formatCurrency(ownerShare)} − Expenses ${formatCurrency(totalExpenses)}`,
+      color: netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+      borderColor: 'border-l-emerald-500', ringColor: 'bg-emerald-100 dark:bg-emerald-900/30',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      icon: IndianRupee, label: 'Avg Ticket Size', value: formatCurrency(avgTicketSize),
+      sub: `${monthAnalytics?.totalTransactions || 0} total transactions`,
+      color: 'text-blue-600 dark:text-blue-400', borderColor: 'border-l-blue-500',
+      ringColor: 'bg-blue-100 dark:bg-blue-900/30', iconColor: 'text-blue-600 dark:text-blue-400',
+    },
+    {
+      icon: Flame, label: 'Top Service', value: topService?.serviceName || '—',
+      sub: topService ? `${topService.count} bookings · ${formatCurrency(topService.revenue)}` : 'No data yet',
+      color: 'text-amber-600 dark:text-amber-400', borderColor: 'border-l-amber-500',
+      ringColor: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      icon: Store, label: 'Busiest Performer', value: busiestStore?.name || '—',
+      sub: busiestStore ? `${busiestStore.transactions} services this month` : 'No data yet',
+      color: 'text-violet-600 dark:text-violet-400', borderColor: 'border-l-violet-500',
+      ringColor: 'bg-violet-100 dark:bg-violet-900/30', iconColor: 'text-violet-600 dark:text-violet-400',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {kpis.map((kpi) => (
+        <motion.div key={kpi.label} whileHover={{ y: -2, scale: 1.01 }} transition={{ type: 'spring', stiffness: 300 }}>
+          <Card className={`shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${kpi.borderColor}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{kpi.label}</p>
+                  <p className={`text-lg font-bold ${kpi.color}`}>{kpi.value}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{kpi.sub}</p>
+                </div>
+                <div className={`w-9 h-9 rounded-xl ${kpi.ringColor} flex items-center justify-center shrink-0`}>
+                  <kpi.icon className={`w-4 h-4 ${kpi.iconColor}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPENSE TRACKER
+// ═══════════════════════════════════════════════════════════════════
+function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const { data: expenses, loading: expLoading, refetch: refetchExpenses } = useFetch<Expense[]>(`/api/salon/expenses?from=${monthStart}&to=${today}`);
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [expStoreId, setExpStoreId] = useState('');
+  const [expCategory, setExpCategory] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expDate, setExpDate] = useState(today);
+  const [submitting, setSubmitting] = useState(false);
+
+  const totalExpenses = useMemo(() => (expenses || []).reduce((s, e) => s + e.amount, 0), [expenses]);
+
+  const handleAddExpense = useCallback(async () => {
+    if (!expStoreId || !expCategory || !expDesc || !expAmount || !expDate) return;
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/expenses', { storeId: expStoreId, category: expCategory, description: expDesc, amount: parseFloat(expAmount), expenseDate: expDate });
+      toast.success('Expense added successfully');
+      setDialogOpen(false);
+      setExpStoreId('');
+      setExpCategory('');
+      setExpDesc('');
+      setExpAmount('');
+      setExpDate(today);
+      refetchExpenses();
+    } catch (e) {
+      toast.error('Failed to add expense', { description: (e as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [expStoreId, expCategory, expDesc, expAmount, expDate, today, refetchExpenses]);
+
+  return (
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-rose-500" />
+              <CardTitle className="text-base">Expense Tracker</CardTitle>
+              <Badge variant="secondary" className="text-[10px]">This Month</Badge>
+            </div>
+            <Button size="sm" onClick={() => setDialogOpen(true)}
+              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Expense
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xs text-muted-foreground">Total Monthly Expenses:</span>
+            <span className="text-sm font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpenses)}</span>
+            {monthAnalytics && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                Net Owner: {formatCurrency(monthAnalytics.totalOwnerShare - totalExpenses)}
+              </span>
+            )}
+          </div>
+
+          {expLoading ? (
+            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          ) : !expenses || expenses.length === 0 ? (
+            <EmptyState icon={Receipt} title="No expenses recorded" description="Track your salon expenses to manage profitability" />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Store</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="hidden sm:table-cell">Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {expenses.slice(0, 10).map((exp) => (
+                    <TableRow key={exp.id}>
+                      <TableCell className="text-xs whitespace-nowrap">{format(new Date(exp.expenseDate), 'MMM d')}</TableCell>
+                      <TableCell className="text-xs font-medium">{exp.store?.name?.replace('Dream Look - ', '')}</TableCell>
+                      <TableCell><ExpenseCategoryBadge category={exp.category} /></TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell max-w-[200px] truncate">{exp.description}</TableCell>
+                      <TableCell className="text-right text-sm font-medium text-red-600 dark:text-red-400">{formatCurrency(exp.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={4} className="font-semibold text-xs">Total</TableCell>
+                    <TableCell className="text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpenses)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Receipt className="w-4 h-4 text-rose-500" /> Add Expense</DialogTitle>
+            <DialogDescription>Record a new expense for your salon</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Store</Label>
+              <Select value={expStoreId} onValueChange={setExpStoreId}>
+                <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                <SelectContent>
+                  {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Category</Label>
+              <Select value={expCategory} onValueChange={setExpCategory}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Description</Label>
+              <Input placeholder="e.g., Monthly electricity bill" value={expDesc} onChange={e => setExpDesc(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Amount (₹)</Label>
+                <Input type="number" placeholder="0" value={expAmount} onChange={e => setExpAmount(e.target.value)} min="0" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Date</Label>
+                <Input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddExpense} disabled={submitting || !expStoreId || !expCategory || !expDesc || !expAmount}
+              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20">
+              {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+              Add Expense
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STORE COMPARISON
+// ═══════════════════════════════════════════════════════════════════
 function StoreComparisonDashboard() {
   const today = format(new Date(), 'yyyy-MM-dd');
   const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
@@ -2532,6 +2891,9 @@ function OwnerView() {
         <StatCard icon={Crown} label="This Year" value={formatCurrency(animatedYearRev)} sub={`${yearAnalytics?.totalTransactions || 0} transactions`} gradient="bg-gradient-to-r from-amber-500 to-orange-500" />
       </div>
 
+      {/* KPI Dashboard */}
+      <KPIDashboard monthAnalytics={monthAnalytics} />
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
@@ -2606,6 +2968,9 @@ function OwnerView() {
 
       {/* Store Comparison */}
       <StoreComparisonDashboard />
+
+      {/* Expense Tracker */}
+      <ExpenseTracker monthAnalytics={monthAnalytics} />
 
       {/* Staff Performance */}
       <Card className="shadow-sm">

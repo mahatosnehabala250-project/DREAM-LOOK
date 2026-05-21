@@ -20,6 +20,7 @@ model Store {
   appointments Appointment[]
   transactions Transaction[]
   attendance   Attendance[]
+  expenses     Expense[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -168,4 +169,17 @@ model Attendance {
   updatedAt DateTime @updatedAt
 
   @@unique([employeeId, date])
+}
+
+// ─── EXPENSES ──────────────────────────────────────────────────────────────────
+model Expense {
+  id          String   @id @default(cuid())
+  storeId     String
+  category    String   // RENT, UTILITIES, SALARY, SUPPLIES, MAINTENANCE, MARKETING, OTHER
+  description String
+  amount      Float
+  expenseDate String   // YYYY-MM-DD
+  store       Store    @relation(fields: [storeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

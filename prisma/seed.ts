@@ -281,10 +281,65 @@ async function main() {
   }
   console.log('✅ Created attendance records');
 
+  // ─── EXPENSES (last 2 months across all stores) ──────────────────────────────
+  const now = new Date();
+  const expenseDates = [];
+  for (let i = 0; i < 2; i++) {
+    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    expenseDates.push(
+      `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
+    );
+  }
+
+  const expenseData = [
+    // Store 0 - MG Road
+    { si: 0, cat: 'RENT', desc: 'Monthly shop rent - MG Road', amt: 40000, dateIdx: 0 },
+    { si: 0, cat: 'RENT', desc: 'Monthly shop rent - MG Road', amt: 40000, dateIdx: 1 },
+    { si: 0, cat: 'UTILITIES', desc: 'Electricity bill - MG Road', amt: 8500, dateIdx: 0 },
+    { si: 0, cat: 'UTILITIES', desc: 'Electricity bill - MG Road', amt: 7200, dateIdx: 1 },
+    { si: 0, cat: 'SALARY', desc: 'Staff salary - Priya Sharma (Manager)', amt: 25000, dateIdx: 0 },
+    { si: 0, cat: 'SALARY', desc: 'Staff salary - Priya Sharma (Manager)', amt: 25000, dateIdx: 1 },
+    { si: 0, cat: 'SUPPLIES', desc: 'Shampoo & conditioner restock', amt: 5500, dateIdx: 0 },
+    { si: 0, cat: 'MAINTENANCE', desc: 'AC servicing - MG Road', amt: 3500, dateIdx: 0 },
+    { si: 0, cat: 'MARKETING', desc: 'Instagram & Google ads', amt: 6000, dateIdx: 0 },
+    // Store 1 - Koramangala
+    { si: 1, cat: 'RENT', desc: 'Monthly shop rent - Koramangala', amt: 50000, dateIdx: 0 },
+    { si: 1, cat: 'RENT', desc: 'Monthly shop rent - Koramangala', amt: 50000, dateIdx: 1 },
+    { si: 1, cat: 'UTILITIES', desc: 'Electricity & water bill', amt: 9200, dateIdx: 0 },
+    { si: 1, cat: 'SALARY', desc: 'Staff salary payment - Koramangala', amt: 22000, dateIdx: 0 },
+    { si: 1, cat: 'SALARY', desc: 'Staff salary payment - Koramangala', amt: 22000, dateIdx: 1 },
+    { si: 1, cat: 'SUPPLIES', desc: 'Hair color & treatment products', amt: 8000, dateIdx: 1 },
+    { si: 1, cat: 'MARKETING', desc: 'Local newspaper ad', amt: 3000, dateIdx: 1 },
+    // Store 2 - Whitefield
+    { si: 2, cat: 'RENT', desc: 'Monthly shop rent - Whitefield', amt: 30000, dateIdx: 0 },
+    { si: 2, cat: 'RENT', desc: 'Monthly shop rent - Whitefield', amt: 30000, dateIdx: 1 },
+    { si: 2, cat: 'UTILITIES', desc: 'Electricity bill - Whitefield', amt: 6800, dateIdx: 0 },
+    { si: 2, cat: 'UTILITIES', desc: 'Internet & WiFi bill', amt: 1500, dateIdx: 1 },
+    { si: 2, cat: 'SALARY', desc: 'Staff salary - Whitefield', amt: 18000, dateIdx: 0 },
+    { si: 2, cat: 'SALARY', desc: 'Staff salary - Whitefield', amt: 18000, dateIdx: 1 },
+    { si: 2, cat: 'SUPPLIES', desc: 'Nail polish & accessories restock', amt: 3500, dateIdx: 0 },
+    { si: 2, cat: 'MAINTENANCE', desc: 'Plumbing repair - Whitefield', amt: 2000, dateIdx: 1 },
+  ];
+
+  const expenses = await Promise.all(
+    expenseData.map((e) =>
+      db.expense.create({
+        data: {
+          storeId: stores[e.si].id,
+          category: e.cat,
+          description: e.desc,
+          amount: e.amt,
+          expenseDate: expenseDates[e.dateIdx],
+        },
+      })
+    )
+  );
+  console.log(`✅ Created ${expenses.length} expenses`);
+
   console.log('\n🎉 Dream Look database seeded successfully!');
   console.log(`   Stores: ${stores.length} | Employees: ${employees.length} | Services: ${services.length}`);
   console.log(`   Products: ${products.length} | Customers: ${customers.length} | Appointments: ${appointments.length}`);
-  console.log(`   Transactions: ${transactionCount}`);
+  console.log(`   Transactions: ${transactionCount} | Expenses: ${expenses.length}`);
 }
 
 main()
