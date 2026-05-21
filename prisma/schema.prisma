@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── STORES ───────────────────────────────────────────────────────────────────
+model Store {
+  id       String     @id @default(cuid())
+  name     String
+  address  String
+  phone    String
+  city     String
+  isActive Boolean    @default(true)
+  employees    Employee[]
+  inventory    Inventory[]
+  appointments Appointment[]
+  transactions Transaction[]
+  attendance   Attendance[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── EMPLOYEES ────────────────────────────────────────────────────────────────
+model Employee {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  role      String   @default("STYLIST") // OWNER, MANAGER, STYLIST
+  avatar    String?
+  storeId   String
+  isActive  Boolean  @default(true)
+  store     Store    @relation(fields: [storeId], references: [id])
+  transactions Transaction[]
+  appointments  Appointment[]
+  attendance    Attendance[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── SERVICES ─────────────────────────────────────────────────────────────────
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  duration    Int      // in minutes
+  category    String   // HAIRCUT, COLOR, TREATMENT, SPA, BRIDAL
+  description String?
+  isActive    Boolean  @default(true)
+  appointments  Appointment[]
+  transactions Transaction[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
+model Product {
+  id        String     @id @default(cuid())
+  name      String
+  cost      Float      // cost price per unit
+  unit      String     @default("ML") // ML, GRAM, PCS
+  category  String     // SHAMPOO, COLOR, OIL, CREAM, MASK, ACCESSORY
+  isActive  Boolean    @default(true)
+  inventory Inventory[]
+  transactionProducts TransactionProduct[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── INVENTORY (stock per store) ──────────────────────────────────────────────
+model Inventory {
+  id          String  @id @default(cuid())
+  storeId     String
+  productId   String
+  quantity    Float
+  reorderLevel Float   @default(10)
+  store       Store   @relation(fields: [storeId], references: [id])
+  product     Product @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, productId])
+}
+
+// ─── CUSTOMERS ────────────────────────────────────────────────────────────────
+model Customer {
+  id        String       @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  notes     String?
+  appointments Appointment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── APPOINTMENTS ─────────────────────────────────────────────────────────────
+model Appointment {
+  id           String   @id @default(cuid())
+  customerId   String
+  storeId      String
+  employeeId   String
+  serviceId    String
+  date         String   // YYYY-MM-DD
+  time         String   // HH:MM
+  status       String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  notes        String?
+  customer     Customer @relation(fields: [customerId], references: [id])
+  store        Store    @relation(fields: [storeId], references: [id])
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  service      Service  @relation(fields: [serviceId], references: [id])
+  transaction  Transaction?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── TRANSACTIONS (service completion records with commission) ─────────────────
+model Transaction {
+  id                   String   @id @default(cuid())
+  appointmentId        String   @unique
+  employeeId           String
+  storeId              String
+  serviceId            String
+  servicePrice         Float    // original service price
+  ownerShare           Float    // 50% of servicePrice
+  employeeGrossShare   Float    // 50% of servicePrice
+  totalProductCost     Float    @default(0) // sum of all products used
+  employeeNetShare     Float    // employeeGrossShare - totalProductCost
+  completedAt          DateTime @default(now())
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  store       Store       @relation(fields: [storeId], references: [id])
+  service     Service     @relation(fields: [serviceId], references: [id])
+  productsUsed TransactionProduct[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── TRANSACTION PRODUCTS (products consumed during a service) ────────────────
+model TransactionProduct {
+  id            String     @id @default(cuid())
+  transactionId String
+  productId     String
+  quantityUsed  Float
+  unitCost      Float      // cost per unit at time of transaction
+  totalCost     Float      // quantityUsed * unitCost
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── ATTENDANCE ───────────────────────────────────────────────────────────────
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  storeId    String
+  date       String   // YYYY-MM-DD
+  checkIn    String?  // HH:MM
+  checkOut   String?  // HH:MM
+  status     String   @default("PRESENT") // PRESENT, ABSENT, HALF_DAY, LEAVE
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  store      Store    @relation(fields: [storeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+}
