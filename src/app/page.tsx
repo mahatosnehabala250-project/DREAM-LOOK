@@ -11,6 +11,7 @@ import {
   BarChart3, Search, Moon, Sun, Timer, RefreshCw, X,
   Sparkles, Heart, ArrowUpDown, FileText,
   Zap, Target, DollarSign, Layers, Shield,
+  Plus, ArrowUp, ArrowDown, Calculator, Star,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ import {
   Tooltip as RTooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  format, isBefore, startOfDay, subDays,
+  format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays,
 } from 'date-fns';
 
 // ─── TYPES ───────────────────────────────────────────────────────
@@ -301,19 +302,26 @@ function GlassCard({ children, className = '', ...props }: { children: React.Rea
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, gradient }: {
+function StatCard({ icon: Icon, label, value, sub, gradient, trend }: {
   icon: React.ElementType; label: string; value: string; sub?: string;
-  gradient: string;
+  gradient: string; trend?: 'up' | 'down' | 'neutral';
 }) {
   return (
     <motion.div whileHover={{ y: -2, scale: 1.02 }} transition={{ type: 'spring', stiffness: 300 }}>
-      <Card className="overflow-hidden shadow-md hover:shadow-xl transition-shadow">
+      <Card className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-200">
         <div className={`h-1.5 ${gradient}`} />
         <CardContent className="p-5">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-              <p className="text-2xl font-bold tracking-tight">{value}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-2xl font-bold tracking-tight">{value}</p>
+                {trend && trend !== 'neutral' && (
+                  <span className={`inline-flex items-center text-xs font-semibold ${trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {trend === 'up' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                  </span>
+                )}
+              </div>
               {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
             </div>
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -343,10 +351,10 @@ function EmptyState({ icon: Icon, title, description }: {
 function LiveClock() {
   const now = useClock();
   return (
-    <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="w-3.5 h-3.5" />
-      <span className="font-medium">{format(now, 'EEE, MMM d, yyyy')}</span>
-      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+    <div className="hidden sm:flex items-center gap-2.5 text-sm">
+      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+      <span className="font-medium text-muted-foreground">{format(now, 'EEE, MMM d, yyyy')}</span>
+      <span className="font-mono text-xs bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-md border border-rose-200/50 dark:border-rose-800/50">
         {format(now, 'hh:mm:ss a')}
       </span>
     </div>
@@ -443,7 +451,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.03)_1px,transparent_0)] [background-size:24px_24px] dark:[background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)]">
       {/* ─── HEADER ──────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4">
@@ -557,7 +565,7 @@ export default function Home() {
       </header>
 
       {/* ─── MAIN CONTENT ───────────────────────────────────── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 rounded-2xl">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeRole}
@@ -577,7 +585,7 @@ export default function Home() {
       </main>
 
       {/* ─── FOOTER ─────────────────────────────────────────── */}
-      <footer className="border-t bg-white/60 dark:bg-gray-950/60 backdrop-blur-sm mt-auto">
+      <footer className="border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} Dream Look Salon Management. All rights reserved.
@@ -751,6 +759,19 @@ function CustomerView() {
               Choose from our premium salon services, pick your preferred stylist, and book in seconds. Walk in beautiful, walk out stunning.
             </motion.p>
           </div>
+          {/* Floating Decorative Icons */}
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }} className="absolute top-6 right-12 opacity-20">
+            <Scissors className="w-8 h-8 text-white" />
+          </motion.div>
+          <motion.div animate={{ rotate: -360 }} transition={{ duration: 25, repeat: Infinity, ease: 'linear' }} className="absolute bottom-8 right-32 opacity-15">
+            <Star className="w-6 h-6 text-white" />
+          </motion.div>
+          <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="absolute top-12 right-48 opacity-20">
+            <Heart className="w-7 h-7 text-white fill-white" />
+          </motion.div>
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: 'linear' }} className="absolute bottom-10 left-12 opacity-10">
+            <Sparkles className="w-10 h-10 text-white" />
+          </motion.div>
         </motion.div>
 
         {/* Store Selection */}
@@ -775,8 +796,16 @@ function CustomerView() {
                         }`}>
                           <Building2 className={`w-5 h-5 transition-colors ${selectedStore === store.id ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`} />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm">{store.name}</h3>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-semibold text-sm">{store.name}</h3>
+                              {store.isActive && (
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                </span>
+                              )}
+                            </div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                             <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{store.address}</span>
                           </div>
@@ -1204,6 +1233,34 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
         <StatCard icon={Target} label="This Month" value={formatCurrency(animatedMonth)} sub={`${(monthTransactions || []).length} services`} gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
       </div>
 
+      {/* How Commission Works + Daily Earnings Sparkline */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <GlassCard>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5"><Calculator className="w-4 h-4 text-violet-500" /> How Commission Works</h3>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="px-2.5 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-semibold">Service Price</span>
+              <span className="text-muted-foreground font-bold">→</span>
+              <span className="px-2.5 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold">50% Owner</span>
+              <span className="text-muted-foreground font-bold">→</span>
+              <span className="px-2.5 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold">50% Employee (Gross)</span>
+              <span className="text-muted-foreground font-bold">→</span>
+              <span className="px-2.5 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-semibold">minus Product Cost</span>
+              <span className="text-muted-foreground font-bold">=</span>
+              <span className="px-2.5 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-bold">Net Earnings</span>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        {/* Daily Earnings Sparkline */}
+        <GlassCard>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium mb-2 flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-blue-500" /> Daily Earnings (Last 7 Days)</h3>
+            <DailyEarningsSparkline transactions={weekTransactions || []} />
+          </CardContent>
+        </GlassCard>
+      </div>
+
       {/* Today's Commission Breakdown */}
       {(todayTransactions || []).length > 0 && (
         <GlassCard>
@@ -1226,6 +1283,9 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
           </CardContent>
         </GlassCard>
       )}
+
+      {/* Commission Calculator Tool */}
+      <CommissionCalculatorTool />
 
       {/* Today's Schedule */}
       <Card className="shadow-sm">
@@ -1288,12 +1348,145 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
   );
 }
 
+// ─── DAILY EARNINGS SPARKLINE ─────────────────────────────────
+function DailyEarningsSparkline({ transactions }: { transactions: Transaction[] }) {
+  const dailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let i = 6; i >= 0; i--) {
+      map.set(format(subDays(new Date(), i), 'yyyy-MM-dd'), 0);
+    }
+    for (const t of transactions) {
+      const d = t.completedAt?.slice(0, 10) || '';
+      if (map.has(d)) map.set(d, (map.get(d) || 0) + t.employeeNetShare);
+    }
+    return Array.from(map.entries()).map(([date, net]) => ({
+      day: format(new Date(date), 'EEE'),
+      net,
+    }));
+  }, [transactions]);
+
+  const maxVal = Math.max(...dailyData.map(d => Math.abs(d.net)), 1);
+
+  if (dailyData.every(d => d.net === 0)) {
+    return (
+      <div className="flex items-end justify-between h-16 gap-1 px-2">
+        {dailyData.map((d) => (
+          <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full h-8 rounded-md bg-muted/50 dark:bg-muted/20" />
+            <span className="text-[10px] text-muted-foreground">{d.day}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-end justify-between h-16 gap-1 px-2">
+      {dailyData.map((d) => {
+        const h = maxVal > 0 ? Math.max(Math.round((Math.abs(d.net) / maxVal) * 48), 4) : 4;
+        return (
+          <div key={d.day} className="flex-1 flex flex-col items-center gap-1" title={`${d.day}: ${formatCurrency(d.net)}`}>
+            <div
+              className={`w-full rounded-md transition-all duration-300 ${d.net >= 0 ? 'bg-gradient-to-t from-emerald-500 to-emerald-400' : 'bg-gradient-to-t from-red-500 to-red-400'}`}
+              style={{ height: `${h}px` }}
+            />
+            <span className="text-[10px] text-muted-foreground font-medium">{d.day}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── COMMISSION CALCULATOR TOOL ─────────────────────────────────
+function CommissionCalculatorTool() {
+  const [calcPrice, setCalcPrice] = useState<number>(500);
+  const [calcProducts, setCalcProducts] = useState<Record<string, number>>({});
+
+  const { data: products } = useFetch<Product[]>('/api/salon/products');
+
+  const calcResult = useMemo(() => {
+    const prods = Object.entries(calcProducts)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const p = (products || []).find(pr => pr.id === id);
+        return { cost: p?.cost || 0, quantity: qty, name: p?.name || '', unit: p?.unit || '' };
+      });
+    return calculateCommission(calcPrice, prods);
+  }, [calcPrice, calcProducts, products]);
+
+  return (
+    <GlassCard>
+      <CardContent className="p-4 space-y-4">
+        <h3 className="text-sm font-medium flex items-center gap-1.5">
+          <Calculator className="w-4 h-4 text-violet-500" />
+          Calculate Your Earnings
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Input Side */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Service Price (₹)</Label>
+              <Input type="number" value={calcPrice} onChange={e => setCalcPrice(Math.max(0, Number(e.target.value)))}
+                className="h-9" min={0} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Products Used</Label>
+              <ScrollArea className="max-h-[150px]">
+                <div className="space-y-1.5 pr-2">
+                  {(products || []).map(p => (
+                    <div key={p.id} className="flex items-center gap-2">
+                      <span className="text-xs flex-1 truncate">{p.name}</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatCurrency(p.cost)}/{p.unit}</span>
+                      <Input type="number" min={0} max={99} value={calcProducts[p.id] || 0}
+                        onChange={e => setCalcProducts(prev => ({ ...prev, [p.id]: Math.max(0, Number(e.target.value)) }))}
+                        className="h-7 w-16 text-xs text-center" />
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          {/* Result Side */}
+          <div className="space-y-2 p-3 rounded-xl bg-muted/50 dark:bg-muted/20 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service Price</span>
+              <span className="font-medium">{formatCurrency(calcPrice)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground pl-2">Owner&apos;s Share (50%)</span>
+              <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(calcResult.ownerShare)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground pl-2">Your Gross (50%)</span>
+              <span className="font-medium text-blue-600 dark:text-blue-400">{formatCurrency(calcResult.employeeGross)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground pl-2">Product Deductions</span>
+              <span className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(calcResult.totalProductCost)}</span>
+            </div>
+            <Separator />
+            <div className={`flex justify-between font-bold text-base ${calcResult.employeeNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              <span>Your Net Earnings</span>
+              <span>{formatCurrency(calcResult.employeeNet)}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </GlassCard>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MANAGER VIEW - MANAGE STORE
 // ═══════════════════════════════════════════════════════════════════
 function ManagerView() {
   const [managerStoreId, setManagerStoreId] = useState<string>('');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [newApptDialogOpen, setNewApptDialogOpen] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -1461,7 +1654,12 @@ function ManagerView() {
       {/* Appointments */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Today&apos;s Appointments</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Today&apos;s Appointments</CardTitle>
+            <Button size="sm" onClick={() => setNewApptDialogOpen(true)} className="bg-rose-500 hover:bg-rose-600 text-xs h-8">
+              <Plus className="w-3.5 h-3.5 mr-1" /> New Appointment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {apptsLoading ? <ViewSkeleton /> : apptsError ? <ErrorCard message="Failed to load appointments" onRetry={refetchAppts} /> :
@@ -1563,7 +1761,158 @@ function ManagerView() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Appointment Dialog */}
+      <ManagerNewApptDialog
+        open={newApptDialogOpen}
+        onClose={() => setNewApptDialogOpen(false)}
+        storeId={activeStoreId}
+        onSuccess={() => { refetchAppts(); setNewApptDialogOpen(false); }}
+      />
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER NEW APPOINTMENT DIALOG
+// ═══════════════════════════════════════════════════════════════════
+function ManagerNewApptDialog({ open, onClose, storeId, onSuccess }: {
+  open: boolean;
+  onClose: () => void;
+  storeId: string;
+  onSuccess: () => void;
+}) {
+  const [apptPhone, setApptPhone] = useState('');
+  const [apptName, setApptName] = useState('');
+  const [apptEmployeeId, setApptEmployeeId] = useState('');
+  const [apptServiceId, setApptServiceId] = useState('');
+  const [apptDate, setApptDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [apptTime, setApptTime] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const todayMin = format(new Date(), 'yyyy-MM-dd');
+
+  const { data: customers } = useFetch<Customer[]>('/api/salon/customers');
+  const { data: employees } = useFetch<Employee[]>(storeId ? `/api/salon/employees?storeId=${storeId}` : null);
+  const { data: services } = useFetch<Service[]>('/api/salon/services');
+
+  const filteredCustomers = useMemo(() => {
+    if (!apptPhone.trim()) return [];
+    return (customers || []).filter(c => c.phone.includes(apptPhone) || c.name.toLowerCase().includes(apptPhone.toLowerCase())).slice(0, 5);
+  }, [customers, apptPhone]);
+
+  const selectedCustomer = useMemo(() => {
+    if (!apptPhone.trim()) return null;
+    return (customers || []).find(c => c.phone === apptPhone);
+  }, [customers, apptPhone]);
+
+  useEffect(() => {
+    if (selectedCustomer) setApptName(selectedCustomer.name);
+  }, [selectedCustomer]);
+
+  const handleCreate = useCallback(async () => {
+    if (!apptEmployeeId || !apptServiceId || !apptTime || !apptName.trim() || !apptPhone.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/appointments/create', {
+        customerName: apptName,
+        customerPhone: apptPhone,
+        storeId,
+        employeeId: apptEmployeeId,
+        serviceId: apptServiceId,
+        date: apptDate,
+        time: apptTime,
+      });
+      toast.success('Appointment created successfully');
+      onSuccess();
+    } catch (e) {
+      toast.error('Failed to create appointment', { description: (e as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [apptName, apptPhone, storeId, apptEmployeeId, apptServiceId, apptDate, apptTime, onSuccess]);
+
+  const canSubmit = apptName.trim().length > 0 && apptPhone.trim().length >= 10 && !!apptEmployeeId && !!apptServiceId && !!apptTime;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>New Appointment</DialogTitle>
+          <DialogDescription>Quickly create a new appointment for this store</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Customer */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer Phone</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">+91</span>
+              <Input placeholder="Search by phone..." value={apptPhone}
+                onChange={e => setApptPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="pl-12 h-9" />
+            </div>
+            {filteredCustomers.length > 0 && !selectedCustomer && (
+              <div className="border rounded-lg overflow-hidden">
+                {filteredCustomers.map(c => (
+                  <button key={c.id} onClick={() => setApptPhone(c.phone)}
+                    className="w-full text-left px-3 py-2 hover:bg-muted/50 text-xs flex justify-between transition-colors">
+                    <span>{c.name}</span><span className="text-muted-foreground">{c.phone}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer Name</Label>
+            <Input value={apptName} onChange={e => setApptName(e.target.value)} placeholder="Full name" className="h-9" />
+          </div>
+          {/* Employee */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Employee</Label>
+            <Select value={apptEmployeeId} onValueChange={setApptEmployeeId}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select employee" /></SelectTrigger>
+              <SelectContent>
+                {(employees || []).map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name} — {emp.role}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Service */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Service</Label>
+            <Select value={apptServiceId} onValueChange={setApptServiceId}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select service" /></SelectTrigger>
+              <SelectContent>
+                {(services || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Date + Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={apptDate} onChange={e => setApptDate(e.target.value)} className="h-9" min={todayMin} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Time</Label>
+              <Select value={apptTime} onValueChange={setApptTime}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Time slot" /></SelectTrigger>
+                <SelectContent>
+                  {TIME_SLOTS.map(slot => <SelectItem key={slot} value={slot}>{formatTime(slot)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={!canSubmit || submitting}
+            className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20">
+            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+            Create
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1576,10 +1925,27 @@ function OwnerView() {
   const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd');
 
+  // Analytics date range state
+  const [analyticsRange, setAnalyticsRange] = useState<'today' | 'week' | 'month' | 'all'>('all');
+
+  const analyticsFromDate = useMemo(() => {
+    switch (analyticsRange) {
+      case 'today': return today;
+      case 'week': return weekAgo;
+      case 'month': return monthAgo;
+      case 'all': return yearAgo;
+    }
+  }, [analyticsRange, today, weekAgo, monthAgo, yearAgo]);
+
   const { data: todayAnalytics, loading: todayLoading } = useFetch<AnalyticsData>(`/api/salon/analytics?from=${today}&to=${today}`);
   const { data: weekAnalytics } = useFetch<AnalyticsData>(`/api/salon/analytics?from=${weekAgo}&to=${today}`);
   const { data: monthAnalytics } = useFetch<AnalyticsData>(`/api/salon/analytics?from=${monthAgo}&to=${today}`);
   const { data: yearAnalytics, loading: yearLoading } = useFetch<AnalyticsData>(`/api/salon/analytics?from=${yearAgo}&to=${today}`);
+
+  // Chart analytics based on selected range
+  const { data: chartAnalytics } = useFetch<AnalyticsData>(`/api/salon/analytics?from=${analyticsFromDate}&to=${today}`);
+
+  const activeChartSource = chartAnalytics || yearAnalytics;
 
   // Settlement state
   const [settlementEmployee, setSettlementEmployee] = useState<string>('');
@@ -1641,7 +2007,7 @@ function OwnerView() {
   }, [settlementData, settlementMonth]);
 
   const handleExportAnalyticsCSV = useCallback(() => {
-    const a = monthAnalytics || yearAnalytics;
+    const a = activeChartSource;
     if (!a) return;
     const rows = [['Date', 'Revenue', 'Transactions']];
     for (const d of a.dailyRevenue) rows.push([d.date, String(d.revenue), String(d.transactions)]);
@@ -1655,27 +2021,27 @@ function OwnerView() {
     el.click();
     URL.revokeObjectURL(url);
     toast.success('Analytics report exported');
-  }, [monthAnalytics, yearAnalytics]);
+  }, [activeChartSource]);
 
   const chartData = useMemo(() => {
-    const source = monthAnalytics || weekAnalytics;
+    const source = activeChartSource;
     if (!source) return [];
     return source.dailyRevenue.map(d => ({
       date: format(new Date(d.date), 'MMM d'),
       revenue: d.revenue,
       transactions: d.transactions,
     }));
-  }, [monthAnalytics, weekAnalytics]);
+  }, [activeChartSource]);
 
   const serviceChartData = useMemo(() => {
-    const source = monthAnalytics || yearAnalytics;
+    const source = activeChartSource;
     if (!source) return [];
     return source.servicePopularity.slice(0, 8).map(s => ({
       name: s.serviceName,
       count: s.count,
       revenue: s.revenue,
     }));
-  }, [monthAnalytics, yearAnalytics]);
+  }, [activeChartSource]);
 
   const animatedTodayRev = useAnimatedNumber(todayAnalytics?.totalRevenue || 0);
   const animatedWeekRev = useAnimatedNumber(weekAnalytics?.totalRevenue || 0);
@@ -1701,9 +2067,23 @@ function OwnerView() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Revenue Trend</CardTitle>
-              <Button size="sm" variant="ghost" onClick={handleExportAnalyticsCSV}>
-                <Download className="w-3.5 h-3.5 mr-1" /> Export
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-1 bg-muted/50 dark:bg-muted/20 rounded-lg p-0.5">
+                  {([['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All Time']] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setAnalyticsRange(key)}
+                      className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all duration-200 ${
+                        analyticsRange === key
+                          ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <Button size="sm" variant="ghost" onClick={handleExportAnalyticsCSV} className="h-7">
+                  <Download className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -1864,8 +2244,8 @@ function OwnerView() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {settlementData.breakdown.map((b) => (
-                          <TableRow key={b.appointmentId}>
+                        {settlementData.breakdown.map((b, idx) => (
+                          <TableRow key={b.appointmentId} className={idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-muted/30 dark:bg-muted/10'}>
                             <TableCell className="text-xs">{b.date}</TableCell>
                             <TableCell className="text-sm">{b.customerName}</TableCell>
                             <TableCell className="text-sm">{b.serviceName}</TableCell>
@@ -1907,7 +2287,7 @@ function OwnerView() {
                 </>
               )}
               {settlementData.breakdown.length === 0 && (
-                <EmptyState icon={FileText} title="No transactions this month" description={`${settlementData.employee.name} has no completed services in ${settlementMonth}`} />
+                <EmptyState icon={FileText} title="No transactions found for this period" description={`${settlementData.employee.name} has no completed services in ${format(new Date(settlementMonth + '-01'), 'MMMM yyyy')}. Try selecting a different month.`} />
               )}
             </motion.div>
           )}
