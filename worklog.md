@@ -508,3 +508,109 @@ employeeNetShare = ₹250 - ₹1,800 = -₹1,550
 | 🟢 Low | Add PWA mobile app shell for offline access | High |
 | 🟢 Low | Add data export for all views (CSV/PDF) | Low |
 
+---
+
+## Separate Login Pages Implementation - 2026-05-22
+
+### Task: Implement separate login pages for Employee, Manager, and Owner roles
+
+### User Request
+"Employee ka login alag, manager ka alag and owner ka alag banega na" — User wanted separate login flows for each role instead of the previous single-page tab-based role switching.
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/auth/route.ts` | POST endpoint for phone-based login verification against Employee database |
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | 3322 → 3843 lines (+521 lines) | Auth system, landing page, 3 login pages, view modifications |
+
+### New Auth API Endpoint (15th API route)
+
+**`POST /api/salon/auth`**
+- Request: `{ phone: string, role: "employee" | "manager" | "owner" }`
+- Normalizes phone (strips +91, spaces, dashes)
+- Maps role to database role: employee→STYLIST, manager→MANAGER, owner→OWNER
+- Queries Employee table with phone suffix match + role filter + isActive
+- Returns: `{ success: true, employee: { id, name, phone, role, storeId, storeName, storeCity } }`
+- Error responses: 400 (missing fields/invalid role), 404 (no match), 500 (server error)
+
+### New Frontend Components (3):
+
+#### 1. `LandingPage` Component (~150 lines)
+- **Full-screen landing** with decorative background blur elements
+- **Dream Look branding**: Animated scissors logo, "Dream Look" gradient title, "Your Beauty, Our Passion" tagline
+- **3 login cards** in responsive grid (1 col mobile, 3 col desktop):
+  - Employee: Rose gradient Scissors icon, "Access your schedule, earnings & commission"
+  - Manager: Amber gradient Building2 icon, "Manage appointments, staff & inventory"
+  - Owner: Emerald gradient Crown icon, "Full business analytics & settlement engine"
+- **Each card**: Glassmorphism styling, gradient accent bar, animated hover (y:-6, scale:1.02), Login button with arrow
+- **Customer link**: "Or book an appointment as a customer" at bottom
+- **Animations**: Staggered entrance (0.6s base + 0.15s per card), spring animations on icons
+
+#### 2. `LoginPage` Component (~200 lines, reusable)
+- **Role-specific theming**: Each role has unique gradient, colors, shadow, ring color
+- **Glassmorphism card**: 32px gradient header with animated icon, white/70 backdrop
+- **Phone input**: 10-digit validation, numeric-only keyboard, auto-strip non-digits
+- **Loading state**: RefreshCw spinner + "Logging in..." text
+- **Error display**: Animated error message with XCircle icon
+- **Demo credentials box**: Role-colored background, shows demo name + clickable phone number to auto-fill
+- **Back button**: Top-left with ChevronLeft icon
+
+#### 3. Auth State Machine in `Home()` Component
+- **AuthScreen type**: `'landing' | 'employee-login' | 'manager-login' | 'owner-login' | 'authenticated'`
+- **AuthUser interface**: `{ id, name, phone, role, storeId, storeName, storeCity }`
+- **localStorage persistence**: Key `dreamlook_auth`, stores `{ screen, user }` object
+- **handleLogin()**: Calls `/api/salon/auth`, stores result in state + localStorage, shows welcome toast
+- **handleLogout()**: Clears state + localStorage, shows info toast, returns to landing
+- **effectiveRole**: Maps STYLIST→employee, MANAGER→manager, OWNER→owner
+
+### Header Changes (Authenticated State)
+- **User info section** (desktop): Avatar with initials + name + role badge + store name + logout button
+- **User bar** (mobile): Below main header row, shows avatar + name + badge + store
+- **Logout button**: Ghost button with LogOut icon, red hover color
+- **Role navigation hidden**: Desktop nav tabs + mobile bottom nav only show when NOT authenticated
+- **Customer mode**: When accessing via "Book as Customer" link, full role tabs + bottom nav appear
+
+### View Modifications:
+
+#### EmployeeView
+- **New prop**: `authUser?: AuthUser | null`
+- **Auto-select**: `selectedEmployee` initializes from `authUser?.id`
+- **Welcome greeting**: "Welcome back, {name}! 👋" when authenticated
+- **Store display**: Shows auth user's store name instead of looking up from employee data
+- **Selector hidden**: Employee dropdown hidden when authUser present
+
+#### ManagerView
+- **New prop**: `authUser?: AuthUser | null`
+- **Auto-select**: `managerStoreId` initializes from `authUser?.storeId`
+- **Welcome greeting**: "Managing {storeName}" + "Welcome, {name}! 👋"
+- **Selector hidden**: Store dropdown hidden when authUser present
+
+### Demo Credentials (shown on login pages):
+| Role | Phone | Name | Store |
+|------|-------|------|-------|
+| Employee | 9900000003 | Anitha Reddy, Stylist at MG Road | Dream Look - MG Road |
+| Manager | 9900000002 | Priya Sharma, Manager at MG Road | Dream Look - MG Road |
+| Owner | 9900000001 | Rajesh Kumar, Owner | Dream Look - MG Road |
+
+### QA Test Results (agent-browser):
+
+| Test | Result | Details |
+|------|--------|---------|
+| Landing page display | ✅ Pass | Dream Look branding, 3 login cards, customer link all visible |
+| Employee login page | ✅ Pass | Rose theme, demo credentials, phone input, back button |
+| Employee login flow | ✅ Pass | Auto-fill phone → click Login → dashboard shows "Welcome back, Anitha Reddy! 👋", AR avatar, Stylist badge |
+| Manager login page | ✅ Pass | Amber theme, "Priya Sharma, Manager at MG Road" demo |
+| Manager login flow | ✅ Pass | Dashboard shows "Managing Dream Look - MG Road", "Welcome, Priya Sharma! 👋", PS avatar, Manager badge |
+| Owner login page | ✅ Pass | Emerald theme, "Rajesh Kumar, Owner" demo |
+| Owner login flow | ✅ Pass | Dashboard shows full analytics, RK avatar, Owner badge |
+| Logout → Landing | ✅ Pass | "Logged out successfully" toast, returns to landing page |
+| Book as Customer | ✅ Pass | Opens customer booking view with role tabs + bottom nav |
+| Session persistence | ✅ Pass | localStorage stores auth state, survives page refresh |
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000, all API endpoints returning 200
+

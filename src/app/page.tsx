@@ -138,6 +138,12 @@ interface SettlementData {
   }>;
 }
 
+type AuthScreen = 'landing' | 'employee-login' | 'manager-login' | 'owner-login' | 'authenticated';
+interface AuthUser {
+  id: string; name: string; phone: string; role: string;
+  storeId: string; storeName: string; storeCity: string;
+}
+
 // ─── UTILITY FUNCTIONS ──────────────────────────────────────────
 function calculateCommission(
   servicePrice: number,
@@ -515,6 +521,58 @@ export default function Home() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [recordCallback, setRecordCallback] = useState<(() => void) | null>(null);
 
+  // ─── Auth State ──────────────────────────────────────────────
+  const [authScreen, setAuthScreen] = useState<AuthScreen>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dreamlook_auth');
+      if (saved) {
+        try { return JSON.parse(saved) as { screen: AuthScreen; user: AuthUser }; } catch { /* ignore */ }
+      }
+    }
+    return 'landing';
+  });
+  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dreamlook_auth');
+      if (saved) {
+        try { return JSON.parse(saved).user as AuthUser; } catch { /* ignore */ }
+      }
+    }
+    return null;
+  });
+
+  const handleLogin = useCallback(async (phone: string, role: string) => {
+    try {
+      const res = await fetch('/api/salon/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      const user: AuthUser = {
+        id: data.employee.id, name: data.employee.name, phone: data.employee.phone,
+        role: data.employee.role, storeId: data.employee.storeId,
+        storeName: data.employee.storeName, storeCity: data.employee.storeCity,
+      };
+      setAuthUser(user);
+      setAuthScreen('authenticated');
+      localStorage.setItem('dreamlook_auth', JSON.stringify({ screen: 'authenticated', user }));
+      toast.success(`Welcome back, ${user.name}!`);
+    } catch (e) {
+      toast.error('Login failed', { description: (e as Error).message });
+      throw e;
+    }
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setAuthUser(null);
+    setAuthScreen('landing');
+    localStorage.removeItem('dreamlook_auth');
+    setActiveRole('customer');
+    toast.info('Logged out successfully');
+  }, []);
+
   // Search data
   const { data: searchCustomers } = useFetch<Customer[]>('/api/salon/customers');
   const { data: searchServices } = useFetch<Service[]>('/api/salon/services');
@@ -562,6 +620,44 @@ export default function Home() {
   if (!mounted) {
     return null;
   }
+
+  // ─── Determine effective role from auth ───────────────────────
+  const effectiveRole = authUser
+    ? (authUser.role === 'STYLIST' ? 'employee' as Role : authUser.role === 'MANAGER' ? 'manager' as Role : authUser.role === 'OWNER' ? 'owner' as Role : activeRole)
+    : activeRole;
+
+  // ─── Unauthenticated: Login Flow ──────────────────────────────
+  if (authScreen !== 'authenticated') {
+    if (authScreen === 'landing') {
+      return (
+        <LandingPage
+          onSelectRole={setAuthScreen}
+          onBookAsCustomer={() => {
+            setAuthUser(null);
+            setAuthScreen('authenticated');
+            setActiveRole('customer');
+            localStorage.setItem('dreamlook_auth', JSON.stringify({ screen: 'authenticated', user: null }));
+          }}
+        />
+      );
+    }
+    // Login pages
+    return (
+      <LoginPage
+        role={authScreen === 'employee-login' ? 'employee' : authScreen === 'manager-login' ? 'manager' : 'owner'}
+        onLogin={handleLogin}
+        onBack={() => setAuthScreen('landing')}
+      />
+    );
+  }
+
+  // ─── Authenticated: Dashboard ─────────────────────────────────
+  const roleBadgeConfig: Record<string, { label: string; className: string }> = {
+    STYLIST: { label: 'Stylist', className: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300' },
+    MANAGER: { label: 'Manager', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+    OWNER: { label: 'Owner', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  };
+  const userBadge = authUser ? roleBadgeConfig[authUser.role] : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.03)_1px,transparent_0)] [background-size:24px_24px] dark:[background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)]">
@@ -626,7 +722,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right side: clock, dark mode, nav */}
+            {/* Right side: clock, dark mode, user info, actions */}
             <div className="flex items-center gap-2">
               <LiveClock />
               <Button
@@ -637,44 +733,92 @@ export default function Home() {
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </Button>
               <NotificationBell />
-              {/* Desktop Nav */}
-              <nav className="hidden lg:flex items-center gap-1 bg-rose-50 dark:bg-rose-950/30 rounded-xl p-1">
-                {([
-                  { id: 'customer' as Role, label: 'Book', icon: Calendar },
-                  { id: 'employee' as Role, label: 'Dashboard', icon: BarChart3 },
-                  { id: 'manager' as Role, label: 'Manage', icon: Building2 },
-                  { id: 'owner' as Role, label: 'Owner', icon: Crown },
-                ]).map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveRole(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      activeRole === tab.id
-                        ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400'
-                    }`}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                ))}
-              </nav>
-              {/* Mobile Menu - hidden when bottom nav is visible */}
-              <div className="hidden lg:block">
-                <Select value={activeRole} onValueChange={(v) => setActiveRole(v as Role)}>
-                  <SelectTrigger className="w-[160px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="customer">Book Appointment</SelectItem>
-                    <SelectItem value="employee">My Dashboard</SelectItem>
-                    <SelectItem value="manager">Manage Store</SelectItem>
-                    <SelectItem value="owner">Owner Panel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {/* Authenticated User Info (Desktop) */}
+              {authUser && (
+                <div className="hidden sm:flex items-center gap-2.5 ml-1">
+                  <Separator orientation="vertical" className="h-8" />
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="h-8 w-8 ring-2 ring-rose-200 dark:ring-rose-800">
+                      <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-xs">
+                        {getInitials(authUser.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden lg:block">
+                      <p className="text-sm font-semibold leading-tight">{authUser.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        {userBadge && (
+                          <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium ${userBadge.className}`}>
+                            {userBadge.label}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">{authUser.storeName}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-red-500 h-8 px-2">
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* No auth: show role navigation tabs */}
+              {!authUser && (
+                <nav className="hidden lg:flex items-center gap-1 bg-rose-50 dark:bg-rose-950/30 rounded-xl p-1">
+                  {([
+                    { id: 'customer' as Role, label: 'Book', icon: Calendar },
+                    { id: 'employee' as Role, label: 'Dashboard', icon: BarChart3 },
+                    { id: 'manager' as Role, label: 'Manage', icon: Building2 },
+                    { id: 'owner' as Role, label: 'Owner', icon: Crown },
+                  ]).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveRole(tab.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        activeRole === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </nav>
+              )}
+
+              {/* Authenticated user actions (mobile) + Book Appointment link */}
+              {authUser && (
+                <div className="flex lg:hidden items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleLogout} aria-label="Logout">
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Mobile: Authenticated user bar */}
+          {authUser && (
+            <div className="sm:hidden flex items-center gap-3 pb-3 -mt-1">
+              <Avatar className="h-8 w-8 ring-2 ring-rose-200 dark:ring-rose-800">
+                <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-xs">
+                  {getInitials(authUser.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{authUser.name}</p>
+                <div className="flex items-center gap-1.5">
+                  {userBadge && (
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium ${userBadge.className}`}>
+                      {userBadge.label}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground truncate">{authUser.storeName}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -682,27 +826,27 @@ export default function Home() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 rounded-2xl">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeRole}
+            key={effectiveRole}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            {activeRole === 'customer' && <CustomerView />}
-            {activeRole === 'employee' && (
-              <EmployeeView onCompleteService={handleCompleteService} />
+            {effectiveRole === 'customer' && <CustomerView />}
+            {effectiveRole === 'employee' && (
+              <EmployeeView onCompleteService={handleCompleteService} authUser={authUser} />
             )}
-            {activeRole === 'manager' && <ManagerView />}
-            {activeRole === 'owner' && <OwnerView />}
+            {effectiveRole === 'manager' && <ManagerView authUser={authUser} />}
+            {effectiveRole === 'owner' && <OwnerView />}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav activeRole={activeRole} setActiveRole={setActiveRole} />
+      {/* Mobile Bottom Navigation (only for non-authenticated users) */}
+      {!authUser && <MobileBottomNav activeRole={activeRole} setActiveRole={setActiveRole} />}
 
       {/* ─── FOOTER (with bottom nav padding) ──────────── */}
-      <footer className="border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto pb-bottom-nav">
+      <footer className={`border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto ${!authUser ? 'pb-bottom-nav' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
@@ -726,6 +870,358 @@ export default function Home() {
         appointment={selectedAppointment}
         onSuccess={recordCallback}
       />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LOGIN PAGE COMPONENT (reusable for Employee, Manager, Owner)
+// ═══════════════════════════════════════════════════════════════════
+function LoginPage({ role, onLogin, onBack }: {
+  role: 'employee' | 'manager' | 'owner';
+  onLogin: (phone: string, role: string) => Promise<void>;
+  onBack: () => void;
+}) {
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const config = {
+    employee: {
+      title: 'Employee Login',
+      subtitle: 'Access your schedule, earnings & commission',
+      icon: Scissors,
+      gradient: 'from-rose-500 to-pink-600',
+      lightBg: 'from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40',
+      ring: 'ring-rose-300 dark:ring-rose-700',
+      btnClass: 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/25',
+      accent: 'text-rose-600 dark:text-rose-400',
+      demoPhone: '9900000003',
+      demoName: 'Anitha Reddy, Stylist at MG Road',
+    },
+    manager: {
+      title: 'Manager Login',
+      subtitle: 'Manage appointments, staff & inventory',
+      icon: Building2,
+      gradient: 'from-amber-500 to-orange-600',
+      lightBg: 'from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40',
+      ring: 'ring-amber-300 dark:ring-amber-700',
+      btnClass: 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/25',
+      accent: 'text-amber-600 dark:text-amber-400',
+      demoPhone: '9900000002',
+      demoName: 'Priya Sharma, Manager at MG Road',
+    },
+    owner: {
+      title: 'Owner Login',
+      subtitle: 'Full business analytics & settlement engine',
+      icon: Crown,
+      gradient: 'from-emerald-500 to-teal-600',
+      lightBg: 'from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40',
+      ring: 'ring-emerald-300 dark:ring-emerald-700',
+      btnClass: 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25',
+      accent: 'text-emerald-600 dark:text-emerald-400',
+      demoPhone: '9900000001',
+      demoName: 'Rajesh Kumar, Owner',
+    },
+  }[role];
+
+  const RoleIcon = config.icon;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phone.length < 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await onLogin(phone, role);
+    } catch {
+      setError('Invalid credentials. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10">
+      {/* Back Button */}
+      <motion.button
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+        onClick={onBack}
+        className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back
+      </motion.button>
+
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="w-full max-w-md"
+      >
+        {/* Glassmorphism Card */}
+        <Card className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-white/30 dark:border-gray-700/30 shadow-2xl overflow-hidden">
+          {/* Gradient Header */}
+          <div className={`h-32 bg-gradient-to-br ${config.gradient} relative flex items-center justify-center`}>
+            <div className="absolute inset-0 bg-black/5" />
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
+              className="relative"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-xl">
+                <RoleIcon className="w-10 h-10 text-white" />
+              </div>
+            </motion.div>
+          </div>
+
+          <CardContent className="p-6 space-y-6">
+            {/* Title */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-center space-y-1.5"
+            >
+              <h2 className="text-2xl font-bold">{config.title}</h2>
+              <p className="text-sm text-muted-foreground">{config.subtitle}</p>
+            </motion.div>
+
+            {/* Form */}
+            <motion.form
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              onSubmit={handleSubmit}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor={`phone-${role}`}>Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id={`phone-${role}`}
+                    type="tel"
+                    placeholder="Enter your 10-digit phone"
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                    className={`pl-10 h-12 text-base ${error ? 'border-red-400 dark:border-red-600 focus-visible:ring-red-400' : ''}`}
+                    disabled={loading}
+                    autoFocus
+                  />
+                </div>
+                {error && (
+                  <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-red-500 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5" />
+                    {error}
+                  </motion.p>
+                )}
+              </div>
+
+              <Button type="submit" className={`w-full h-12 text-base font-semibold ${config.btnClass}`} disabled={loading || phone.length < 10}>
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Logging in...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <LogIn className="w-4 h-4" />
+                    Login
+                  </span>
+                )}
+              </Button>
+            </motion.form>
+
+            {/* Demo Credentials */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="pt-2"
+            >
+              <div className={`rounded-xl bg-gradient-to-r ${config.lightBg} p-4 border border-white/50`}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Demo Credentials</p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${config.gradient} flex items-center justify-center`}>
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{config.demoName}</p>
+                    <button
+                      type="button"
+                      onClick={() => { setPhone(config.demoPhone); setError(''); }}
+                      className={`text-sm ${config.accent} font-mono hover:underline cursor-pointer`}
+                    >
+                      {config.demoPhone}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LANDING PAGE
+// ═══════════════════════════════════════════════════════════════════
+function LandingPage({ onSelectRole, onBookAsCustomer }: {
+  onSelectRole: (screen: AuthScreen) => void;
+  onBookAsCustomer: () => void;
+}) {
+  const cards = [
+    {
+      id: 'employee-login' as AuthScreen,
+      title: 'Employee',
+      subtitle: 'Access your schedule, earnings & commission',
+      icon: Scissors,
+      gradient: 'from-rose-500 to-pink-600',
+      lightBg: 'from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30',
+      shadow: 'hover:shadow-rose-500/20',
+      ring: 'ring-rose-200 dark:ring-rose-800',
+    },
+    {
+      id: 'manager-login' as AuthScreen,
+      title: 'Manager',
+      subtitle: 'Manage appointments, staff & inventory',
+      icon: Building2,
+      gradient: 'from-amber-500 to-orange-600',
+      lightBg: 'from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30',
+      shadow: 'hover:shadow-amber-500/20',
+      ring: 'ring-amber-200 dark:ring-amber-800',
+    },
+    {
+      id: 'owner-login' as AuthScreen,
+      title: 'Owner',
+      subtitle: 'Full business analytics & settlement engine',
+      icon: Crown,
+      gradient: 'from-emerald-500 to-teal-600',
+      lightBg: 'from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30',
+      shadow: 'hover:shadow-emerald-500/20',
+      ring: 'ring-emerald-200 dark:ring-emerald-800',
+    },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10">
+      {/* Decorative background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-rose-200/30 dark:bg-rose-900/10 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-pink-200/30 dark:bg-pink-900/10 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-rose-100/20 to-pink-100/20 dark:from-rose-900/5 dark:to-pink-900/5 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-4xl">
+        {/* Logo & Branding */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-12"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-2xl shadow-rose-500/30 mb-6"
+          >
+            <Scissors className="w-10 h-10 text-white" />
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 bg-clip-text text-transparent mb-3"
+          >
+            Dream Look
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-lg text-muted-foreground font-medium"
+          >
+            Your Beauty, Our Passion
+          </motion.p>
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-4 h-1 w-24 mx-auto rounded-full bg-gradient-to-r from-rose-400 to-pink-400"
+          />
+        </motion.div>
+
+        {/* Login Cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10"
+        >
+          {cards.map((card, i) => (
+            <motion.button
+              key={card.id}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 + i * 0.15 }}
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelectRole(card.id)}
+              className="group relative text-left"
+            >
+              <Card className={`backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border-white/30 dark:border-gray-700/20 shadow-lg ${card.shadow} hover:shadow-xl transition-all duration-300 overflow-hidden h-full`}>
+                {/* Gradient accent bar */}
+                <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
+                <CardContent className="p-6 flex flex-col items-center text-center gap-4">
+                  <motion.div
+                    whileHover={{ rotate: [0, -10, 10, 0] }}
+                    transition={{ duration: 0.5 }}
+                    className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow`}
+                  >
+                    <card.icon className="w-8 h-8 text-white" />
+                  </motion.div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-xl font-bold">{card.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{card.subtitle}</p>
+                  </div>
+                  <div className={`w-full py-2.5 rounded-xl bg-gradient-to-r ${card.lightBg} flex items-center justify-center gap-2 text-sm font-semibold transition-colors ${card.ring.replace('ring-', 'text-').replace('200', '600').replace('800', '400').replace('dark:', 'dark:')}`}>
+                    <LogIn className="w-4 h-4" />
+                    Login
+                    <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.button>
+          ))}
+        </motion.div>
+
+        {/* Customer booking link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.0 }}
+          className="text-center"
+        >
+          <button
+            onClick={onBookAsCustomer}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors group"
+          >
+            <Calendar className="w-4 h-4" />
+            Or book an appointment as a customer
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -1422,10 +1918,11 @@ function CustomerAppointmentTracker() {
 // ═══════════════════════════════════════════════════════════════════
 interface EmployeeViewProps {
   onCompleteService: (appointment: Appointment, callback?: () => void) => void;
+  authUser?: AuthUser | null;
 }
 
-function EmployeeView({ onCompleteService }: EmployeeViewProps) {
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
+  const [selectedEmployee, setSelectedEmployee] = useState<string>(() => authUser?.id || '');
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
@@ -1481,22 +1978,35 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-lg font-bold">{currentEmp?.name || 'Select Employee'}</h2>
-            <p className="text-sm text-muted-foreground">
-              {currentEmp?.role} @ {currentEmp?.store?.name || ''}
-            </p>
+            {authUser ? (
+              <>
+                <h2 className="text-lg font-bold">Welcome back, {authUser.name}! 👋</h2>
+                <p className="text-sm text-muted-foreground">
+                  {currentEmp?.role} @ {authUser.storeName}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold">{currentEmp?.name || 'Select Employee'}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {currentEmp?.role} @ {currentEmp?.store?.name || ''}
+                </p>
+              </>
+            )}
           </div>
         </div>
-        <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Select employee" />
-          </SelectTrigger>
-          <SelectContent>
-            {(employees || []).map(emp => (
-              <SelectItem key={emp.id} value={emp.id}>{emp.name} — {emp.role}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!authUser && (
+          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Select employee" />
+            </SelectTrigger>
+            <SelectContent>
+              {(employees || []).map(emp => (
+                <SelectItem key={emp.id} value={emp.id}>{emp.name} — {emp.role}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Earnings Cards */}
@@ -1886,8 +2396,8 @@ function TodayVsYesterdayComparison({ storeId }: { storeId: string }) {
 // ═══════════════════════════════════════════════════════════════════
 // MANAGER VIEW - MANAGE STORE
 // ═══════════════════════════════════════════════════════════════════
-function ManagerView() {
-  const [managerStoreId, setManagerStoreId] = useState<string>('');
+function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
+  const [managerStoreId, setManagerStoreId] = useState<string>(() => authUser?.storeId || '');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'low' | 'out'>('all');
   const [newApptDialogOpen, setNewApptDialogOpen] = useState(false);
 
@@ -1978,17 +2488,28 @@ function ManagerView() {
       {/* Store Selector */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold">Manage Store</h2>
-          <p className="text-sm text-muted-foreground">{selectedStoreData?.name || 'Select a store'}</p>
+          {authUser ? (
+            <>
+              <h2 className="text-lg font-bold">Managing {authUser.storeName}</h2>
+              <p className="text-sm text-muted-foreground">Welcome, {authUser.name}! 👋</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold">Manage Store</h2>
+              <p className="text-sm text-muted-foreground">{selectedStoreData?.name || 'Select a store'}</p>
+            </>
+          )}
         </div>
-        <Select value={activeStoreId} onValueChange={setManagerStoreId}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Select store" />
-          </SelectTrigger>
-          <SelectContent>
-            {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {!authUser && (
+          <Select value={activeStoreId} onValueChange={setManagerStoreId}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Select store" />
+            </SelectTrigger>
+            <SelectContent>
+              {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Overview Stats */}
