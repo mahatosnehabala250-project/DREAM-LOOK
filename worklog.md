@@ -123,8 +123,102 @@ employeeNetShare = ₹250 - ₹1,800 = -₹1,550
 ```
 
 ### Unresolved / Next Phase:
-- Frontend uses mock data; needs wiring to real API endpoints for production use
 - No authentication system yet (simulated role switching)
-- Settlement CSV export generates mock data; should use real API data
-- Add dark mode toggle
 - Add real-time updates (WebSocket) for live appointment tracking
+
+---
+
+## Frontend Quality Rewrite - Real API Integration - 2025-07-18
+
+### Task: Complete rewrite of `src/app/page.tsx` to wire all views to real APIs
+
+### Files Modified (3):
+| File | Change |
+|------|--------|
+| `src/app/layout.tsx` | Added `ThemeProvider` from `next-themes` wrapping body; configured `attribute="class"`, `defaultTheme="light"`, `enableSystem`; moved `Toaster` inside ThemeProvider with `richColors` and `position="top-right"` |
+| `src/app/globals.css` | Added `@keyframes fadeIn` + `.animate-[fadeIn_0.2s_ease-out]` utility class for CSS-based step transitions |
+| `src/app/page.tsx` | Complete rewrite — 2098 lines, all views wired to real API endpoints |
+
+### Key Changes:
+
+#### Dark Mode (next-themes)
+- Replaced manual `document.documentElement.classList.toggle('dark', darkMode)` with `useTheme()` from `next-themes`
+- Layout.tsx wraps content in `<ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>`
+- Theme toggle button uses `setTheme()` instead of local state
+- Hydration-safe rendering via `resolvedTheme !== undefined` check
+
+#### API Integration (All Views → Real Endpoints)
+- **CustomerView**: Fetches stores, services, employees (per-store), appointments (per-store/employee/date for busy slot detection) from real APIs. Booking uses `POST /api/salon/appointments/create`.
+- **EmployeeView**: Fetches employees, transactions (today/week/month per-employee), appointments (today per-employee). Earnings calculated from real transaction `employeeNetShare` data.
+- **ManagerView**: Fetches stores, appointments, inventory, attendance, and analytics all from real APIs. Revenue now comes from `/api/salon/analytics` endpoint (real transaction data) instead of summing appointment service prices. Attendance check-in/out uses `POST /api/salon/attendance`. Restock uses `PATCH /api/salon/inventory/[id]`.
+- **OwnerView**: Revenue charts and performance table use real `/api/salon/analytics` data. Settlement engine fetches from `/api/salon/settlement` and generates real CSV exports with actual transaction breakdowns.
+
+#### Bug Fixes
+1. **Booking navigation**: Removed `AnimatePresence` between booking step transitions; replaced with CSS `animate-[fadeIn_0.2s_ease-out]` class for reliable step changes
+2. **ManagerView revenue**: Changed from `appointments.filter(COMPLETED).reduce(service.price)` to `todayAnalytics.totalRevenue` from real analytics API
+3. **Busy slot detection**: Now filters by `selectedEmployeeId` to show per-stylist availability instead of store-wide
+4. **Cascading render lint errors**: Fixed React 19 ESLint `react-hooks/set-state-in-effect` by replacing `useEffect(() => setMounted(true))` with `resolvedTheme` check, and replacing `useEffect(() => setManagerStoreId(stores[0].id))` with computed `activeStoreId` value
+
+#### New Features
+- **`apiPost()` / `apiPatch()` helpers**: Centralized fetch wrappers with error message extraction from response body
+- **Commission breakdown card** in EmployeeView showing today's gross/net/deductions at a glance
+- **Phone validation**: Added 10-digit validation with real-time warning in booking form
+- **Sorted schedule**: Appointments sorted by time in EmployeeView and ManagerView
+- **Employee step in booking**: Moved stylist selection to Step 2 alongside date/time for better UX flow
+- **Enhanced search**: Click-outside-to-close behavior added to search dropdown
+
+#### Styling Improvements
+- Glassmorphism cards with `backdrop-blur-md bg-white/70`
+- Hero section with decorative blur circles and SVG pattern
+- Gradient shadows on buttons (`shadow-rose-500/20`, `shadow-violet-500/20`)
+- Ring-2 focus indicators on selected store/service cards
+- Better shadow transitions on hover (`hover:shadow-xl`)
+- Improved empty states with rounded icon containers
+- Consistent card shadows (`shadow-sm` on sections, `shadow-md` on interactive elements)
+- `getInitials()` utility function for consistent avatar fallbacks
+
+### Lint: Zero errors, zero warnings
+
+---
+
+## QA Review & Bug Fix Pass - 2026-05-21
+
+### Task: Browser-based QA testing, bug fixes, and improvements
+
+### Testing Methodology
+- Used `agent-browser` for automated visual QA
+- Tested all 4 role views (Customer, Employee, Manager, Owner)
+- Tested full 5-step booking flow end-to-end
+- Verified all API endpoints return correct data with real commission calculations
+- Captured screenshots at each step
+
+### Bugs Found & Fixed
+
+| # | Bug | Severity | Fix |
+|---|-----|----------|-----|
+| 1 | `GlassCard` component didn't forward `onClick` prop to Card element | Critical | Changed signature to accept `...props` and spread onto `<Card>` |
+| 2 | `canNext` returned `false` at step 4 (confirmation), disabling "Confirm Booking" button | Critical | Added `if (bookingStep === 4) return true` to useMemo |
+| 3 | Time slots UI was accidentally removed during API integration rewrite | Critical | Re-added full time slot grid with busy/past/selected states, conditional on stylist selection |
+
+### QA Test Results by View
+
+| View | Status | Notes |
+|------|--------|-------|
+| **Customer - Step 1 (Stores)** | ✅ Pass | 3 real stores loaded from API, selection works, "Continue" button appears |
+| **Customer - Step 2 (Services)** | ✅ Pass | 12 real services with category filters, prices, durations from API |
+| **Customer - Step 3 (Date/Time/Stylist)** | ✅ Pass | Calendar works, stylist selection loads employees per store, time slots appear after stylist selected |
+| **Customer - Step 4 (Details)** | ✅ Pass | Name/phone form with 10-digit validation |
+| **Customer - Step 5 (Confirm)** | ✅ Pass | Summary shows real store/stylist/service/price data |
+| **Employee Dashboard** | ✅ Pass | Real earnings from transaction API, commission breakdown card visible |
+| **Manager Dashboard** | ✅ Pass | Real analytics data, inventory from API, attendance management |
+| **Owner Panel** | ✅ Pass | Staff performance table with real data, settlement engine accessible |
+
+### Known Limitations
+- `agent-browser click` on shadcn/ui Button sometimes doesn't trigger React onClick (headless browser event propagation issue). Focus + Enter works reliably.
+- Dark mode toggle present but full dark mode styles not yet tested comprehensively
+
+### Files Modified
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | ~15 lines | GlassCard prop forwarding fix, canNext step 4 fix, time slots re-add |
+
