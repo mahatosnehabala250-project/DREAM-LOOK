@@ -12,6 +12,7 @@ import {
   Sparkles, Heart, ArrowUpDown, FileText,
   Zap, Target, DollarSign, Layers, Shield,
   Plus, ArrowUp, ArrowDown, Calculator, Star,
+  Bell, Trophy, Activity, History, ChevronDown, Eye, EyeOff,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ResponsiveContainer,
@@ -170,6 +172,100 @@ function getInitials(name: string) {
 
 const TIME_SLOTS = generateTimeSlots();
 const SERVICE_CATEGORIES = ['ALL', 'HAIRCUT', 'COLOR', 'TREATMENT', 'SPA', 'BRIDAL'];
+
+const STORE_GRADIENTS = [
+  'from-rose-500 to-pink-600',
+  'from-amber-500 to-orange-600',
+  'from-emerald-500 to-teal-600',
+];
+const STORE_GRADIENT_LIGHT = [
+  'from-rose-100 to-pink-100 dark:from-rose-950/30 dark:to-pink-950/30',
+  'from-amber-100 to-orange-100 dark:from-amber-950/30 dark:to-orange-950/30',
+  'from-emerald-100 to-teal-100 dark:from-emerald-950/30 dark:to-teal-950/30',
+];
+
+function MobileBottomNav({ activeRole, setActiveRole }: { activeRole: Role; setActiveRole: (r: Role) => void }) {
+  const tabs = [
+    { id: 'customer' as Role, label: 'Book', icon: Calendar },
+    { id: 'employee' as Role, label: 'Dashboard', icon: BarChart3 },
+    { id: 'manager' as Role, label: 'Manage', icon: Building2 },
+    { id: 'owner' as Role, label: 'Owner', icon: Crown },
+  ];
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50">
+      <div className="flex items-center justify-around h-16 px-2">
+        {tabs.map((tab) => {
+          const isActive = activeRole === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveRole(tab.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-all duration-200 ${
+                isActive ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'
+              }`}>
+              <div className={`relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${
+                isActive ? 'bg-rose-100 dark:bg-rose-950/40 shadow-sm' : ''
+              }`}>
+                <tab.icon className={`w-5 h-5 transition-all ${isActive ? 'scale-110' : ''}`} />
+                {isActive && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-rose-500" />}
+              </div>
+              <span className={`text-[10px] font-medium transition-all ${isActive ? 'text-rose-600 dark:text-rose-400' : ''}`}>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const { data: pendingAppts } = useFetch<Appointment[]>('/api/salon/appointments?status=PENDING');
+  const count = (pendingAppts || []).length;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label="Notifications">
+          <Bell className="w-4 h-4" />
+          {count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
+              {count > 9 ? '9+' : count}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="p-3 border-b">
+          <h4 className="text-sm font-semibold">Pending Appointments</h4>
+          <p className="text-xs text-muted-foreground">{count} awaiting confirmation</p>
+        </div>
+        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+          {count === 0 ? (
+            <div className="flex flex-col items-center py-6 text-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+              <p className="text-sm text-muted-foreground">All caught up!</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {(pendingAppts || []).map((apt) => (
+                <div key={apt.id} className="px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium truncate">{apt.customer?.name}</p>
+                    <StatusBadge status={apt.status} />
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <span>{apt.service?.name}</span>
+                    <span>•</span>
+                    <span>{formatTime(apt.time)}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{apt.store?.name}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── CUSTOM HOOKS ────────────────────────────────────────────────
 function useFetch<T>(url: string | null, options?: RequestInit) {
@@ -523,6 +619,7 @@ export default function Home() {
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </Button>
+              <NotificationBell />
               {/* Desktop Nav */}
               <nav className="hidden lg:flex items-center gap-1 bg-rose-50 dark:bg-rose-950/30 rounded-xl p-1">
                 {([
@@ -545,8 +642,8 @@ export default function Home() {
                   </button>
                 ))}
               </nav>
-              {/* Mobile Menu */}
-              <div className="lg:hidden">
+              {/* Mobile Menu - hidden when bottom nav is visible */}
+              <div className="hidden lg:block">
                 <Select value={activeRole} onValueChange={(v) => setActiveRole(v as Role)}>
                   <SelectTrigger className="w-[160px] h-9">
                     <SelectValue />
@@ -584,19 +681,28 @@ export default function Home() {
         </AnimatePresence>
       </main>
 
-      {/* ─── FOOTER ─────────────────────────────────────────── */}
-      <footer className="border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Dream Look Salon Management. All rights reserved.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Built with <Heart className="w-3.5 h-3.5 inline text-rose-500 fill-rose-500" /> for beautiful salons
-          </p>
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav activeRole={activeRole} setActiveRole={setActiveRole} />
+
+      {/* ─── FOOTER (with bottom nav padding) ──────────── */}
+      <footer className="border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto pb-bottom-nav">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+              <Scissors className="w-3 h-3 text-white" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} Dream Look Salon. All rights reserved.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-muted-foreground">3 Locations Across Bangalore</p>
+            <p className="text-xs text-muted-foreground">
+              Built with <Heart className="w-3 h-3 inline text-rose-500 fill-rose-500" /> for beautiful salons
+            </p>
+          </div>
         </div>
       </footer>
-
-      {/* ─── RECORD SERVICE DIALOG ──────────────────────────── */}
       <RecordServiceDialog
         open={recordDialogOpen}
         onClose={() => { setRecordDialogOpen(false); setSelectedAppointment(null); }}
@@ -774,6 +880,9 @@ function CustomerView() {
           </motion.div>
         </motion.div>
 
+        {/* Track Appointment */}
+        <CustomerAppointmentTracker />
+
         {/* Store Selection */}
         <div className="space-y-4">
           <div>
@@ -784,17 +893,18 @@ function CustomerView() {
             <ErrorCard message="Failed to load stores" onRetry={refetchStores} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(stores || []).map((store) => (
+              {(stores || []).map((store, idx) => {
+                const borderColors = ['border-l-rose-500', 'border-l-amber-500', 'border-l-emerald-500'];
+                const iconGradients = [STORE_GRADIENTS[0], STORE_GRADIENTS[1], STORE_GRADIENTS[2]];
+                return (
                 <motion.div key={store.id} whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <GlassCard className={`cursor-pointer transition-all hover:shadow-xl ${
+                  <GlassCard className={`cursor-pointer transition-all hover:shadow-xl border-l-4 ${borderColors[idx] || borderColors[0]} ${
                     selectedStore === store.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                   }`} onClick={() => { setSelectedStore(store.id); setSelectedEmployeeId(''); setSelectedTimeSlot(''); }}>
                     <CardContent className="p-5">
                       <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                          selectedStore === store.id ? 'bg-rose-100 dark:bg-rose-900/40' : 'bg-gray-100 dark:bg-gray-800'
-                        }`}>
-                          <Building2 className={`w-5 h-5 transition-colors ${selectedStore === store.id ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradients[idx] || iconGradients[0]} text-white`}>
+                          <Building2 className="w-5 h-5" />
                         </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -824,7 +934,8 @@ function CustomerView() {
                     </CardContent>
                   </GlassCard>
                 </motion.div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -1144,6 +1255,137 @@ function CustomerView() {
   );
 }
 
+// ─── CUSTOMER APPOINTMENT TRACKER ──────────────────────────
+function CustomerAppointmentTracker() {
+  const [trackPhone, setTrackPhone] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [lookupDone, setLookupDone] = useState(false);
+
+  const { data: customers } = useFetch<Customer[]>('/api/salon/customers');
+
+  const matchedCustomer = useMemo(() => {
+    if (!trackPhone.trim() || trackPhone.length < 10) return null;
+    return (customers || []).find(c => c.phone === trackPhone);
+  }, [customers, trackPhone]);
+
+  const customerId = matchedCustomer?.id || '';
+
+  // Get all appointments across stores
+  const { data: allAppointments, loading: allLoading } = useFetch<Appointment[]>(
+    customerId && lookupDone ? `/api/salon/appointments?date=2020-01-01` : null
+  );
+
+  const filteredAppts = useMemo(() => {
+    if (!allAppointments || !customerId) return [];
+    return allAppointments.filter(a => a.customerId === customerId);
+  }, [allAppointments, customerId]);
+
+  const handleLookup = useCallback(() => {
+    if (trackPhone.length >= 10) setLookupDone(true);
+  }, [trackPhone]);
+
+  return (
+    <GlassCard className="overflow-hidden">
+      <CardContent className="p-0">
+        <button onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+              <Search className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold">Track My Appointment</p>
+              <p className="text-xs text-muted-foreground">Already booked? Check your appointment status</p>
+            </div>
+          </div>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        {expanded && (
+          <div className="px-4 pb-4 border-t pt-4 animate-[fadeIn_0.2s_ease-out]">
+            {!lookupDone ? (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">+91</span>
+                    <Input placeholder="Enter your phone number" value={trackPhone}
+                      onChange={e => setTrackPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className="h-10 pl-12" maxLength={10} />
+                  </div>
+                  <Button onClick={handleLookup} disabled={trackPhone.length < 10}
+                    className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md shadow-violet-500/20">
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </div>
+                {trackPhone.length > 0 && trackPhone.length < 10 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Enter a valid 10-digit phone number</p>
+                )}
+              </div>
+            ) : !matchedCustomer ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-2xl bg-muted/80 flex items-center justify-center mx-auto mb-3">
+                  <User className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium mb-1">No bookings found</p>
+                <p className="text-xs text-muted-foreground mb-3">We couldn&apos;t find any appointments for this number</p>
+                <Button variant="outline" size="sm" onClick={() => { setLookupDone(false); setTrackPhone(''); }}>
+                  Try again
+                </Button>
+              </div>
+            ) : allLoading ? (
+              <div className="space-y-2 py-2">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
+            ) : filteredAppts.length === 0 ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-2xl bg-muted/80 flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium mb-1">No upcoming appointments</p>
+                <p className="text-xs text-muted-foreground mb-1">{matchedCustomer.name} has no scheduled appointments</p>
+                <Button variant="outline" size="sm" onClick={() => { setLookupDone(false); setTrackPhone(''); setExpanded(false); }}>
+                  Book a new appointment
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{matchedCustomer.name}&apos;s Appointments</p>
+                  <Button variant="ghost" size="sm" onClick={() => { setLookupDone(false); setTrackPhone(''); }} className="text-xs h-7">
+                    <RefreshCw className="w-3 h-3 mr-1" /> New Search
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                  {filteredAppts.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, 5).map((apt) => (
+                    <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30 flex items-center justify-center shrink-0">
+                        <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{apt.service?.name}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>{format(new Date(apt.date), 'MMM d')}</span>
+                          <span>•</span>
+                          <span>{formatTime(apt.time)}</span>
+                          <span>•</span>
+                          <span>{apt.employee?.name}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{apt.store?.name}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <StatusBadge status={apt.status} />
+                        <p className="text-xs font-medium text-rose-600 dark:text-rose-400 mt-1">{formatCurrency(apt.service?.price || 0)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </GlassCard>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // EMPLOYEE VIEW - MY DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
@@ -1344,6 +1586,63 @@ function EmployeeView({ onCompleteService }: EmployeeViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Recent Activity Feed */}
+      {(todayTransactions || []).length > 0 && (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-500" />
+                <CardTitle className="text-base">Recent Activity</CardTitle>
+              </div>
+              <Badge variant="secondary">{(todayTransactions || []).length} services today</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
+              {todayTransactions.sort((a, b) => {
+                const ta = new Date(b.completedAt || '').getTime();
+                const tb = new Date(a.completedAt || '').getTime();
+                return ta - tb;
+              }).map((tx) => (
+                <div key={tx.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 dark:bg-muted/10 hover:bg-muted/50 transition-colors">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    tx.employeeNetShare >= 0
+                      ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                      : 'bg-red-100 dark:bg-red-900/30'
+                  }`}>
+                    {tx.employeeNetShare >= 0
+                      ? <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      : <TrendingUp className="w-4 h-4 text-red-600 dark:text-red-400 rotate-180" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{tx.service?.name}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>{tx.completedAt ? format(new Date(tx.completedAt), 'hh:mm a') : ''}</span>
+                      {tx.productsUsed.length > 0 && (
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+                          {tx.productsUsed.length} product{tx.productsUsed.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-semibold ${
+                      tx.employeeNetShare >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {tx.employeeNetShare >= 0 ? '+' : ''}{formatCurrency(tx.employeeNetShare)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{formatCurrency(tx.servicePrice)} total</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -1480,6 +1779,76 @@ function CommissionCalculatorTool() {
   );
 }
 
+// ─── TODAY VS YESTERDAY COMPARISON ──────────────────────────
+function TodayVsYesterdayComparison({ storeId }: { storeId: string }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+  const { data: todayData } = useFetch<AnalyticsData>(
+    storeId ? `/api/salon/analytics?storeId=${storeId}&from=${today}&to=${today}` : null
+  );
+  const { data: yesterdayData } = useFetch<AnalyticsData>(
+    storeId ? `/api/salon/analytics?storeId=${storeId}&from=${yesterday}&to=${yesterday}` : null
+  );
+
+  const todayRev = todayData?.totalRevenue || 0;
+  const yesterdayRev = yesterdayData?.totalRevenue || 0;
+  const todayTx = todayData?.totalTransactions || 0;
+  const yesterdayTx = yesterdayData?.totalTransactions || 0;
+
+  const revChange = yesterdayRev > 0 ? ((todayRev - yesterdayRev) / yesterdayRev) * 100 : todayRev > 0 ? 100 : 0;
+  const txChange = yesterdayTx > 0 ? ((todayTx - yesterdayTx) / yesterdayTx) * 100 : todayTx > 0 ? 100 : 0;
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-violet-500" />
+          <CardTitle className="text-base">Today vs Yesterday</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Revenue</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-lg font-bold">{formatCurrency(todayRev)}</p>
+                <p className="text-xs text-muted-foreground">yesterday: {formatCurrency(yesterdayRev)}</p>
+              </div>
+              <div className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-lg ${
+                revChange >= 0
+                  ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
+                  : 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30'
+              }`}>
+                {revChange >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                {Math.abs(revChange).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+          <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Transactions</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-lg font-bold">{todayTx}</p>
+                <p className="text-xs text-muted-foreground">yesterday: {yesterdayTx}</p>
+              </div>
+              <div className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-lg ${
+                txChange >= 0
+                  ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
+                  : 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30'
+              }`}>
+                {txChange >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                {Math.abs(txChange).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MANAGER VIEW - MANAGE STORE
 // ═══════════════════════════════════════════════════════════════════
@@ -1595,6 +1964,9 @@ function ManagerView() {
         <StatCard icon={Users} label="Staff Present" value={`${presentCount}/${(attendance || []).length || '-'}`} sub="Checked in today" gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
         <StatCard icon={AlertTriangle} label="Low Stock Alerts" value={String(lowStockCount)} sub="Items need restocking" gradient="bg-gradient-to-r from-amber-500 to-orange-500" />
       </div>
+
+      {/* Today vs Yesterday Comparison */}
+      <TodayVsYesterdayComparison storeId={activeStoreId} />
 
       {/* Staff Attendance */}
       <Card className="shadow-sm">
@@ -1916,6 +2288,106 @@ function ManagerNewApptDialog({ open, onClose, storeId, onSuccess }: {
   );
 }
 
+// ─── STORE COMPARISON DASHBOARD ──────────────────────────────
+function StoreComparisonDashboard() {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+  const storeIds = (stores || []).map(s => s.id);
+
+  const { data: koramangala } = useFetch<AnalyticsData>(
+    storeIds[0] ? `/api/salon/analytics?storeId=${storeIds[0]}&from=${monthAgo}&to=${today}` : null
+  );
+  const { data: mgRoad } = useFetch<AnalyticsData>(
+    storeIds[1] ? `/api/salon/analytics?storeId=${storeIds[1]}&from=${monthAgo}&to=${today}` : null
+  );
+  const { data: whitefield } = useFetch<AnalyticsData>(
+    storeIds[2] ? `/api/salon/analytics?storeId=${storeIds[2]}&from=${monthAgo}&to=${today}` : null
+  );
+
+  const storeAnalytics = [
+    { store: stores?.[0], data: koramangala, gradient: STORE_GRADIENT_LIGHT[0], gradientDark: STORE_GRADIENTS[0] },
+    { store: stores?.[1], data: mgRoad, gradient: STORE_GRADIENT_LIGHT[1], gradientDark: STORE_GRADIENTS[1] },
+    { store: stores?.[2], data: whitefield, gradient: STORE_GRADIENT_LIGHT[2], gradientDark: STORE_GRADIENTS[2] },
+  ];
+
+  const maxRevenue = Math.max(...storeAnalytics.map(s => s.data?.totalRevenue || 0), 1);
+
+  const topStore = storeAnalytics.reduce((best, cur) =>
+    (cur.data?.totalRevenue || 0) > (best.data?.totalRevenue || 0) ? cur : best,
+    storeAnalytics[0]
+  );
+  const topStoreId = topStore?.store?.id;
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-violet-500" />
+            <CardTitle className="text-base">Store Comparison</CardTitle>
+            <Badge variant="secondary" className="text-[10px]">This Month</Badge>
+          </div>
+          {topStore && topStore.data && topStore.data.totalRevenue > 0 && (
+            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+              <Trophy className="w-3.5 h-3.5" />
+              Top: {topStore.store?.name}
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {storeAnalytics.map((s, i) => {
+            const rev = s.data?.totalRevenue || 0;
+            const tx = s.data?.totalTransactions || 0;
+            const pct = maxRevenue > 0 ? (rev / maxRevenue) * 100 : 0;
+            const isTop = s.store?.id === topStoreId && rev > 0;
+            return (
+              <motion.div key={s.store?.id || i} whileHover={{ y: -2, scale: 1.01 }}
+                className={`relative p-4 rounded-xl border transition-all ${isTop ? 'border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/20' : ''}`}>
+                {isTop && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                    <Trophy className="w-3 h-3 text-white" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${s.gradientDark} flex items-center justify-center`}>
+                    <Building2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold truncate max-w-[140px]">{s.store?.name || 'Store'}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.store?.city}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Revenue</span>
+                    <span className="text-sm font-bold">{formatCurrency(rev)}</span>
+                  </div>
+                  <div className="h-2 bg-muted/50 dark:bg-muted/20 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className={`h-full rounded-full bg-gradient-to-r ${s.gradientDark}`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{tx} transactions</span>
+                    <span>{pct.toFixed(0)}% of total</span>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // OWNER VIEW - OWNER PANEL
 // ═══════════════════════════════════════════════════════════════════
@@ -2131,6 +2603,9 @@ function OwnerView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Store Comparison */}
+      <StoreComparisonDashboard />
 
       {/* Staff Performance */}
       <Card className="shadow-sm">

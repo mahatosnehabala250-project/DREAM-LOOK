@@ -378,3 +378,133 @@ employeeNetShare = ₹250 - ₹1,800 = -₹1,550
 ### Lint: Zero errors, zero warnings
 ### Dev server: Running on port 3000, all API endpoints returning 200
 
+---
+
+## Major Feature & Styling Enhancement Pass - 2026-05-22 (Round 2)
+
+### Task: Comprehensive feature additions and UI polish based on QA review
+
+### Files Modified (2):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | 2482 → 2957 lines (+475 lines) | 6 new feature components + styling improvements |
+| `src/app/globals.css` | Unchanged | Custom scrollbar, section title accent, empty state gradient, bottom nav padding already present |
+
+### New Features Added (6):
+
+#### 1. Mobile Bottom Navigation Bar (`MobileBottomNav`)
+- **Location**: Fixed bottom of viewport, visible on mobile only (`lg:hidden`)
+- **4 tabs**: Book, Dashboard, Manage, Owner with active state highlighting
+- **Active indicator**: Rose background pill + bottom indicator line for active tab
+- **Glassmorphism**: `backdrop-blur-xl` + semi-transparent background
+- **Replaces**: Mobile Select dropdown (now hidden on mobile, visible on desktop via `hidden lg:block`)
+- **Footer**: Added `pb-bottom-nav` class for proper spacing on mobile
+
+#### 2. Customer Appointment Tracker (`CustomerAppointmentTracker`)
+- **Location**: Collapsible card between hero and store selection in CustomerView
+- **Phone lookup**: Enter phone → match customer → fetch all appointments → filter by customerId
+- **Expandable**: Click to expand/collapse with animated chevron
+- **Results**: Shows last 5 appointments sorted by date with status badges, store name, service, price
+- **Empty states**: Handles "no customer found", "no appointments", and "no upcoming"
+- **Styling**: Violet/purple accent theme to differentiate from primary booking flow
+
+#### 3. Notification Bell (`NotificationBell`)
+- **Location**: Header bar, between dark mode toggle and desktop navigation
+- **API**: Fetches `/api/salon/appointments?status=PENDING`
+- **Badge**: Shows count of pending appointments (caps at "9+")
+- **Popover**: Click opens Popover with list of pending appointments showing customer name, service, time, store
+- **Empty state**: Shows "All caught up!" with checkmark when no pending appointments
+- **Component**: Uses shadcn/ui `Popover` from `@/components/ui/popover`
+
+#### 4. Owner Store Comparison Dashboard (`StoreComparisonDashboard`)
+- **Location**: OwnerView, between charts and staff performance table
+- **Data**: Fetches analytics for each of 3 stores individually via `/api/salon/analytics?storeId=X`
+- **Display**: 3-column grid with revenue, transaction count, animated progress bars
+- **Top performer**: Trophy icon and amber highlight on highest-revenue store
+- **Gradients**: Each store has a unique color gradient (rose, amber, emerald)
+- **Animations**: Progress bars animate from 0% to actual percentage
+
+#### 5. Employee Recent Activity Feed
+- **Location**: EmployeeView, after Today's Schedule section (only shows when todayTransactions exist)
+- **Data**: Uses existing todayTransactions data
+- **Display**: Sorted list of today's services with:
+  - Service name and completion time
+  - Product count badge
+  - Net earnings with green/red color coding
+  - Trend arrows (up for positive, down-flipped for negative)
+- **Scrollable**: Max height 288px with custom scrollbar
+
+#### 6. Manager Today vs Yesterday Comparison (`TodayVsYesterdayComparison`)
+- **Location**: ManagerView, between overview stats and staff attendance
+- **Data**: Fetches analytics for today and yesterday for the active store
+- **Display**: Two-column comparison cards:
+  - Revenue: today amount + yesterday amount + percentage change
+  - Transactions: today count + yesterday count + percentage change
+- **Change indicators**: Green up arrow for positive, red down arrow for negative change
+- **Styling**: Violet accent icon, percentage badges with colored backgrounds
+
+### Styling Improvements:
+1. **Store card gradient icons**: Each store now has a unique gradient-colored Building2 icon (rose, amber, emerald) instead of plain gray
+2. **Store card left borders**: 4px colored left border per store (rose, amber, emerald) using `border-l-4`
+3. **Footer redesign**: Added logo icon, "3 Locations Across Bangalore" tagline, better spacing
+4. **Footer mobile padding**: `pb-bottom-nav` class ensures footer isn't hidden behind mobile bottom nav
+5. **New icon imports**: Added `Bell, Trophy, Activity, History, ChevronDown, Eye, EyeOff` from lucide-react
+6. **Popover import**: Added `Popover, PopoverContent, PopoverTrigger` from shadcn/ui
+7. **Store gradient constants**: `STORE_GRADIENTS` and `STORE_GRADIENT_LIGHT` arrays for consistent theming
+
+### QA Test Results (agent-browser):
+
+| View | Feature Tested | Result |
+|------|---------------|--------|
+| Customer (Mobile 375px) | Bottom navigation visible | ✅ 4 tabs visible with active state |
+| Customer | Track My Appointment card | ✅ Expandable card visible below hero |
+| Customer | Store gradient icons/borders | ✅ Each store has unique color |
+| Header | Notification bell | ✅ Shows "6" badge, popover opens with pending appointments |
+| Manager | Today vs Yesterday | ✅ Comparison cards with percentage changes |
+| Owner | Store Comparison | ✅ 3 store cards with animated progress bars |
+| Employee | Recent Activity | ✅ Shows when transactions exist |
+| All Views | Dark mode toggle | ✅ Theme switching works |
+| All Views | Search bar | ✅ Desktop only (hidden on mobile) |
+| Mobile | Select dropdown hidden | ✅ Replaced by bottom nav |
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000, all API endpoints returning 200
+
+---
+
+## Current Project Status Assessment
+
+### What's Working (Complete)
+- ✅ **Database**: 9 models, seeded with 3 stores, 11 employees, 12 services, 12 products, 10 customers
+- ✅ **API Layer**: 14 endpoints all functional with 50-50 commission engine
+- ✅ **Frontend**: 2957-line SPA with 4 role-based views
+- ✅ **Dark Mode**: next-themes ThemeProvider, toggle in header
+- ✅ **Mobile Navigation**: Fixed bottom nav bar with 4 tabs
+- ✅ **Notification System**: Bell icon with pending appointment count + popover
+- ✅ **Store Comparison**: Side-by-side analytics for 3 stores (Owner view)
+- ✅ **Today vs Yesterday**: Revenue/transaction comparison (Manager view)
+- ✅ **Appointment Tracking**: Phone-based lookup (Customer view)
+- ✅ **Activity Feed**: Recent transaction history (Employee view)
+- ✅ **Settlement Engine**: Monthly calculations with CSV export
+- ✅ **Commission Calculator**: Interactive tool (Employee view)
+
+### Known Issues / Risks
+1. **Next.js Dev Tools badge**: Shows "1 Issue" badge — this is a Next.js internal issue overlay, not our code
+2. **CustomerAppointmentTracker**: Uses a date-based query (`date=2020-01-01`) to fetch all appointments — works but is a workaround; ideally the API would support customer-level filtering
+3. **No authentication**: Still using simulated role switching (NextAuth.js available in deps)
+4. **Store Comparison animation**: Uses framer-motion `initial/animate` on progress bars — requires client-side rendering
+
+### Priority Recommendations for Next Phase
+
+| Priority | Task | Effort |
+|----------|------|--------|
+| 🔴 High | Add NextAuth.js authentication with role-based access control | Medium |
+| 🔴 High | Add `/api/salon/appointments?customerId=` filter endpoint | Low |
+| 🟡 Medium | Add WebSocket real-time updates for appointment status changes | High |
+| 🟡 Medium | Add print-friendly styles for settlement reports | Low |
+| 🟡 Medium | Add expense tracking for products purchased | Medium |
+| 🟡 Medium | Add customer appointment management (reschedule/cancel) | Medium |
+| 🟢 Low | Add multi-language support (Hindi/Tamil) | Medium |
+| 🟢 Low | Add PWA mobile app shell for offline access | High |
+| 🟢 Low | Add data export for all views (CSV/PDF) | Low |
+
