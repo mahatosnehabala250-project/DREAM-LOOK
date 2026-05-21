@@ -375,7 +375,7 @@ function StatusBadge({ status }: { status: string }) {
     LEAVE: { label: 'On Leave', className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/40 dark:text-gray-400' },
   };
   const c = config[status] || { label: status, className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/40 dark:text-gray-300' };
-  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${c.className}`}>{c.label}</span>;
+  return <span className={`inline-flex items-center rounded-full border border-l-2 border-l-current px-2.5 py-0.5 text-xs font-medium ${c.className}`}>{c.label}</span>;
 }
 
 function StockIndicator({ quantity, reorderLevel }: { quantity: number; reorderLevel: number }) {
@@ -415,18 +415,18 @@ function ViewSkeleton() {
 
 function GlassCard({ children, className = '', ...props }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={`backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-white/20 dark:border-gray-700/30 shadow-lg ${className}`} {...props}>
+    <Card className={`backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-white/20 dark:border-gray-700/30 shadow-lg hover:shadow-lg hover:shadow-rose-500/5 transition-shadow duration-300 ${className}`} {...props}>
       {children}
     </Card>
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, gradient, trend }: {
+function StatCard({ icon: Icon, label, value, sub, gradient, trend, index = 0 }: {
   icon: React.ElementType; label: string; value: string; sub?: string;
-  gradient: string; trend?: 'up' | 'down' | 'neutral';
+  gradient: string; trend?: 'up' | 'down' | 'neutral'; index?: number;
 }) {
   return (
-    <motion.div whileHover={{ y: -2, scale: 1.02 }} transition={{ type: 'spring', stiffness: 300 }}>
+    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }} whileHover={{ y: -2, scale: 1.02 }} whileTap={{ scale: 0.98 }}>
       <Card className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-200">
         <div className={`h-1.5 ${gradient}`} />
         <CardContent className="p-5">
@@ -855,6 +855,13 @@ export default function Home() {
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} Dream Look Salon. All rights reserved.
             </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Privacy Policy</a>
+            <span className="text-xs text-muted-foreground">·</span>
+            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Terms of Service</a>
+            <span className="text-xs text-muted-foreground">·</span>
+            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Contact Us</a>
           </div>
           <div className="flex items-center gap-4">
             <p className="text-xs text-muted-foreground">3 Locations Across Bangalore</p>
@@ -1399,7 +1406,10 @@ function CustomerView() {
         {/* Store Selection */}
         <div className="space-y-4">
           <div>
-            <h2 className="text-xl font-bold">Choose a Store</h2>
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+              Choose a Store
+            </h2>
             <p className="text-muted-foreground text-sm">Select your preferred Dream Look location</p>
           </div>
           {storesError ? (
@@ -1499,7 +1509,10 @@ function CustomerView() {
         {bookingStep === 1 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-bold">Choose a Service</h2>
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Choose a Service
+              </h2>
               <p className="text-muted-foreground text-sm">Select the service you&apos;d like</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1557,7 +1570,10 @@ function CustomerView() {
         {bookingStep === 2 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-bold">Pick Stylist, Date & Time</h2>
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Pick Stylist, Date & Time
+              </h2>
               <p className="text-muted-foreground text-sm">Choose your preferred appointment slot</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1651,7 +1667,10 @@ function CustomerView() {
         {bookingStep === 3 && (
           <div className="space-y-4 max-w-md mx-auto">
             <div>
-              <h2 className="text-xl font-bold">Your Details</h2>
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Your Details
+              </h2>
               <p className="text-muted-foreground text-sm">We just need your name and phone number</p>
             </div>
             <GlassCard>
@@ -1686,7 +1705,10 @@ function CustomerView() {
         {bookingStep === 4 && (
           <div className="space-y-4 max-w-md mx-auto">
             <div>
-              <h2 className="text-xl font-bold">Review & Confirm</h2>
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Review & Confirm
+              </h2>
               <p className="text-muted-foreground text-sm">Verify your appointment details</p>
             </div>
             <GlassCard className="overflow-hidden">
@@ -1921,6 +1943,42 @@ interface EmployeeViewProps {
   authUser?: AuthUser | null;
 }
 
+// ─── QUICK STATS CARD ─────────────────────────────────────────
+function QuickStatsCard({ todayTransactions, weekTransactions }: { todayTransactions: Transaction[]; weekTransactions: Transaction[] }) {
+  const weekCompleted = weekTransactions.length;
+  const weekTotal = weekCompleted; // All transactions in weekTransactions are completed
+  const completionRate = weekTotal > 0 ? 100 : 0;
+  const avgEarning = weekCompleted > 0 ? Math.round(weekTransactions.reduce((s, t) => s + t.employeeNetShare, 0) / weekCompleted) : 0;
+  const productsUsedToday = todayTransactions.reduce((s, t) => s + t.productsUsed.length, 0);
+
+  const stats = [
+    { label: 'This Week', value: String(weekCompleted), icon: Calendar, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+    { label: 'Completion Rate', value: `${completionRate}%`, icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+    { label: 'Avg. Earning', value: formatCurrency(avgEarning), icon: IndianRupee, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-100 dark:bg-rose-900/30' },
+    { label: 'Products Used', value: String(productsUsedToday), icon: Package, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  ];
+
+  return (
+    <GlassCard>
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 gap-4">
+          {stats.map((s) => (
+            <div key={s.label} className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                <p className="text-sm font-bold truncate">{s.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </GlassCard>
+  );
+}
+
 function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => authUser?.id || '');
 
@@ -1980,14 +2038,20 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
           <div>
             {authUser ? (
               <>
-                <h2 className="text-lg font-bold">Welcome back, {authUser.name}! 👋</h2>
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                  Welcome back, {authUser.name}! 👋
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   {currentEmp?.role} @ {authUser.storeName}
                 </p>
               </>
             ) : (
               <>
-                <h2 className="text-lg font-bold">{currentEmp?.name || 'Select Employee'}</h2>
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                  {currentEmp?.name || 'Select Employee'}
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   {currentEmp?.role} @ {currentEmp?.store?.name || ''}
                 </p>
@@ -2008,6 +2072,9 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
           </Select>
         )}
       </div>
+
+      {/* Quick Stats */}
+      <QuickStatsCard todayTransactions={todayTransactions || []} weekTransactions={weekTransactions || []} />
 
       {/* Earnings Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2479,6 +2546,16 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
     }
   }, [refetchAppts]);
 
+  const handleUpdateAppointmentStatus = useCallback(async (aptId: string, newStatus: string, toastMsg: string) => {
+    try {
+      await apiPatch(`/api/salon/appointments/${aptId}`, { status: newStatus });
+      toast.success(toastMsg);
+      refetchAppts();
+    } catch (e) {
+      toast.error('Action failed', { description: (e as Error).message });
+    }
+  }, [refetchAppts]);
+
   const selectedStoreData = stores?.find(s => s.id === activeStoreId);
 
   if (storesLoading) return <ViewSkeleton />;
@@ -2490,12 +2567,18 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         <div>
           {authUser ? (
             <>
-              <h2 className="text-lg font-bold">Managing {authUser.storeName}</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Managing {authUser.storeName}
+              </h2>
               <p className="text-sm text-muted-foreground">Welcome, {authUser.name}! 👋</p>
             </>
           ) : (
             <>
-              <h2 className="text-lg font-bold">Manage Store</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Manage Store
+              </h2>
               <p className="text-sm text-muted-foreground">{selectedStoreData?.name || 'Select a store'}</p>
             </>
           )}
@@ -2593,10 +2676,10 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
           !appointments || appointments.length === 0 ? (
             <EmptyState icon={Calendar} title="No appointments today" description="No appointments scheduled for this store" />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="sticky top-0 bg-background">
                     <TableHead>Time</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Service</TableHead>
@@ -2607,17 +2690,29 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
                 </TableHeader>
                 <TableBody>
                   {appointments.sort((a, b) => a.time.localeCompare(b.time)).map((apt) => (
-                    <TableRow key={apt.id}>
+                    <TableRow key={apt.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium">{formatTime(apt.time)}</TableCell>
                       <TableCell>{apt.customer?.name || 'N/A'}</TableCell>
                       <TableCell><span className="text-sm">{apt.service?.name}</span></TableCell>
                       <TableCell>{apt.employee?.name}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <StatusBadge status={apt.status} />
                           {apt.status === 'PENDING' && (
-                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2"
-                              onClick={() => handleConfirmAppointment(apt.id)}>Confirm</Button>
+                            <>
+                              <Button size="sm" className="h-6 text-xs px-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                                onClick={() => handleUpdateAppointmentStatus(apt.id, 'CONFIRMED', 'Appointment confirmed')}>Confirm</Button>
+                              <Button size="sm" className="h-6 text-xs px-2 bg-red-500 hover:bg-red-600 text-white"
+                                onClick={() => handleUpdateAppointmentStatus(apt.id, 'CANCELLED', 'Appointment cancelled')}>Cancel</Button>
+                            </>
+                          )}
+                          {apt.status === 'CONFIRMED' && (
+                            <Button size="sm" className="h-6 text-xs px-2 bg-blue-500 hover:bg-blue-600 text-white"
+                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'IN_PROGRESS', 'Service started')}>Start</Button>
+                          )}
+                          {apt.status === 'IN_PROGRESS' && (
+                            <Button size="sm" className="h-6 text-xs px-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'COMPLETED', 'Service completed')}>Complete</Button>
                           )}
                         </div>
                       </TableCell>
@@ -3025,6 +3120,37 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
   const [submitting, setSubmitting] = useState(false);
 
   const totalExpenses = useMemo(() => (expenses || []).reduce((s, e) => s + e.amount, 0), [expenses]);
+  const rentExpenses = useMemo(() => (expenses || []).filter(e => e.category === 'RENT').reduce((s, e) => s + e.amount, 0), [expenses]);
+  const salaryExpenses = useMemo(() => (expenses || []).filter(e => e.category === 'SALARY').reduce((s, e) => s + e.amount, 0), [expenses]);
+  const suppliesExpenses = useMemo(() => (expenses || []).filter(e => e.category === 'SUPPLIES').reduce((s, e) => s + e.amount, 0), [expenses]);
+
+  const categoryChartData = useMemo(() => {
+    if (!expenses || expenses.length === 0) return [];
+    const map: Record<string, number> = {};
+    for (const e of expenses) {
+      map[e.category] = (map[e.category] || 0) + e.amount;
+    }
+    return Object.entries(map)
+      .map(([cat, amt]) => ({
+        category: cat.charAt(0) + cat.slice(1).toLowerCase(),
+        amount: amt,
+        fill: EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('amber') ? '#f59e0b'
+          : EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('blue') ? '#3b82f6'
+          : EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('emerald') ? '#10b981'
+          : EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('violet') ? '#8b5cf6'
+          : EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('orange') ? '#f97316'
+          : EXPENSE_CATEGORY_CONFIG[cat]?.bg.includes('pink') ? '#ec4899'
+          : '#6b7280',
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const overviewCards = [
+    { label: 'Total Expenses', value: totalExpenses, icon: Receipt, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30', pct: 100 },
+    { label: 'Rent', value: rentExpenses, icon: Building2, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', pct: totalExpenses > 0 ? Math.round((rentExpenses / totalExpenses) * 100) : 0 },
+    { label: 'Salaries', value: salaryExpenses, icon: Users, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/30', pct: totalExpenses > 0 ? Math.round((salaryExpenses / totalExpenses) * 100) : 0 },
+    { label: 'Supplies', value: suppliesExpenses, icon: Package, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/30', pct: totalExpenses > 0 ? Math.round((suppliesExpenses / totalExpenses) * 100) : 0 },
+  ];
 
   const handleAddExpense = useCallback(async () => {
     if (!expStoreId || !expCategory || !expDesc || !expAmount || !expDate) return;
@@ -3051,10 +3177,12 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-rose-500" />
-              <CardTitle className="text-base">Expense Tracker</CardTitle>
-              <Badge variant="secondary" className="text-[10px]">This Month</Badge>
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+                Expense Tracker
+              </h2>
+              <p className="text-sm text-muted-foreground ml-3">Track and manage salon operating costs</p>
             </div>
             <Button size="sm" onClick={() => setDialogOpen(true)}
               className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20">
@@ -3062,26 +3190,68 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs text-muted-foreground">Total Monthly Expenses:</span>
-            <span className="text-sm font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpenses)}</span>
+        <CardContent className="space-y-6">
+          {/* Expense Overview Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {overviewCards.map((card) => (
+              <motion.div key={card.label} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 300 }}>
+                <div className="rounded-xl border p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
+                      <card.icon className={`w-4 h-4 ${card.color}`} />
+                    </div>
+                    {card.label !== 'Total Expenses' && (
+                      <span className="text-[10px] font-medium text-muted-foreground">{card.pct}%</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{card.label}</p>
+                  <p className={`text-base font-bold mt-0.5 ${card.color}`}>{formatCurrency(card.value)}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Expense Breakdown Chart */}
+          {categoryChartData.length > 0 && (
+            <div className="rounded-xl border p-4">
+              <h3 className="text-sm font-medium mb-3">Expense Breakdown by Category</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={categoryChartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="category" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}k`} />
+                  <RTooltip formatter={(v: number) => formatCurrency(v)} />
+                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                    {categoryChartData.map((entry, idx) => (
+                      <rect key={idx} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Net summary */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Total Monthly Expenses:</span>
+            <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpenses)}</span>
             {monthAnalytics && (
-              <span className="text-xs text-muted-foreground ml-auto">
+              <span className="text-muted-foreground ml-auto">
                 Net Owner: {formatCurrency(monthAnalytics.totalOwnerShare - totalExpenses)}
               </span>
             )}
           </div>
 
+          {/* Recent Expenses Table */}
           {expLoading ? (
             <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
           ) : !expenses || expenses.length === 0 ? (
             <EmptyState icon={Receipt} title="No expenses recorded" description="Track your salon expenses to manage profitability" />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="sticky top-0 bg-background">
                     <TableHead>Date</TableHead>
                     <TableHead>Store</TableHead>
                     <TableHead>Category</TableHead>
@@ -3090,8 +3260,8 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.slice(0, 10).map((exp) => (
-                    <TableRow key={exp.id}>
+                  {expenses.slice(0, 10).map((exp, idx) => (
+                    <TableRow key={exp.id} className={`hover:bg-muted/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
                       <TableCell className="text-xs whitespace-nowrap">{format(new Date(exp.expenseDate), 'MMM d')}</TableCell>
                       <TableCell className="text-xs font-medium">{exp.store?.name?.replace('Dream Look - ', '')}</TableCell>
                       <TableCell><ExpenseCategoryBadge category={exp.category} /></TableCell>
@@ -3496,17 +3666,20 @@ function OwnerView() {
       {/* Staff Performance */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Staff Performance</CardTitle>
-          <CardDescription>Ranked by total revenue generated</CardDescription>
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <span className="w-1 h-5 rounded-full bg-gradient-to-b from-rose-500 to-pink-500" />
+            Staff Performance
+          </h2>
+          <CardDescription className="ml-3">Ranked by total revenue generated</CardDescription>
         </CardHeader>
         <CardContent>
           {!(yearAnalytics || monthAnalytics)?.employeePerformance?.length ? (
             <EmptyState icon={Users} title="No performance data" description="Data will appear as employees complete services" />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="sticky top-0 bg-background">
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead className="text-right">Services</TableHead>
@@ -3517,7 +3690,7 @@ function OwnerView() {
                 </TableHeader>
                 <TableBody>
                   {(yearAnalytics || monthAnalytics)!.employeePerformance.map((emp, i) => (
-                    <TableRow key={emp.employeeId}>
+                    <TableRow key={emp.employeeId} className="hover:bg-muted/50 transition-colors">
                       <TableCell>
                         {i === 0 ? <Crown className="w-4 h-4 text-amber-500" /> : <span className="text-muted-foreground text-sm">{i + 1}</span>}
                       </TableCell>
@@ -3542,7 +3715,10 @@ function OwnerView() {
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 p-5 text-white">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-5 h-5" />
-            <h3 className="text-lg font-bold">Settlement Engine</h3>
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              <span className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-purple-500" />
+              Settlement Engine
+            </h3>
           </div>
           <p className="text-sm text-white/80">Calculate monthly employee commission settlements from real transaction data</p>
         </div>
@@ -3589,10 +3765,10 @@ function OwnerView() {
               {/* Breakdown Table */}
               {settlementData.breakdown.length > 0 && (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-xl">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow className="sticky top-0 bg-background">
                           <TableHead>Date</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Service</TableHead>
@@ -3606,7 +3782,7 @@ function OwnerView() {
                       </TableHeader>
                       <TableBody>
                         {settlementData.breakdown.map((b, idx) => (
-                          <TableRow key={b.appointmentId} className={idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-muted/30 dark:bg-muted/10'}>
+                          <TableRow key={b.appointmentId} className={`${idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-muted/30 dark:bg-muted/10'} hover:bg-muted/50 transition-colors`}>
                             <TableCell className="text-xs">{b.date}</TableCell>
                             <TableCell className="text-sm">{b.customerName}</TableCell>
                             <TableCell className="text-sm">{b.serviceName}</TableCell>
