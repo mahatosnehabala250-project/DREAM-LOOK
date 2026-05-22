@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring files/ for more about ignoring files.
 
 # dependencies
 node_modules
@@ -48,7 +48,23 @@ dev.log
 dev.out.log
 test
 prompt
-
 server.log
-# Skills directory
+
+# Skills directory (internal tooling)
 /skills/
+
+# Database files (regenerate with: bun run db:push + bun run db:seed)
+/db/*.db
+/db/*.db-journal
+
+# Z.ai internal files
+.zscripts/
+
+# Download/QA artifacts
+/download/
+
+# Examples
+/examples/
+
+# Caddy config (server-specific)
+Caddyfile
