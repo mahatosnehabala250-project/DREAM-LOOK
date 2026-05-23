@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import {
   Scissors, MapPin, Phone, Clock, ChevronRight, ChevronLeft, User,
-  Calendar, Check, Crown, Download, Package, AlertTriangle, TrendingUp,
+  Calendar, Check, Crown, Download, Package, AlertTriangle, TrendingUp, TrendingDown,
   Users, Building2, IndianRupee, Play, CheckCircle2, LogIn, LogOut,
   BarChart3, Search, Moon, Sun, Timer, RefreshCw, X,
   Sparkles, Heart, ArrowUpDown, FileText,
@@ -16,6 +16,8 @@ import {
   Receipt, Percent, Wallet, CircleDot, Flame, Store, XCircle,
   Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote,
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
+  Wrench, Mail, Medal, Settings, UserCircle, HelpCircle,
+  MessageSquare, ExternalLink, LifeBuoy, Info,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -47,8 +49,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuTrigger, DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu';
+import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RTooltip, ResponsiveContainer,
+  Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import {
   format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, addMonths,
@@ -467,6 +474,54 @@ function ViewSkeleton() {
   );
 }
 
+function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <div className="flex gap-4 px-2">
+        {Array.from({ length: cols }).map((_, i) => (
+          <Skeleton key={`h-${i}`} className="h-4 flex-1" />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, ri) => (
+        <div key={`r-${ri}`} className="flex gap-4 px-2 py-2">
+          {Array.from({ length: cols }).map((_, ci) => (
+            <Skeleton key={`c-${ri}-${ci}`} className="h-5 flex-1" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CardGridSkeleton({ cards = 4 }: { cards?: number }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+      {Array.from({ length: cards }).map((_, i) => (
+        <div key={i} className="rounded-xl border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </div>
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-3 w-36" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChartSkeleton({ height = 280 }: { height?: number }) {
+  return (
+    <div className="animate-pulse space-y-3">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-8 w-24 rounded-lg" />
+      </div>
+      <Skeleton className="w-full rounded-xl" style={{ height }} />
+    </div>
+  );
+}
+
 function GlassCard({ children, className = '', ...props }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <Card className={`backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-white/20 dark:border-gray-700/30 shadow-lg hover:shadow-lg hover:shadow-rose-500/5 transition-shadow duration-300 ${className}`} {...props}>
@@ -532,6 +587,244 @@ function LiveClock() {
       </span>
     </div>
   );
+}
+
+// ─── PROFILE DROPDOWN ───────────────────────────────────────────
+function ProfileDropdown({ authUser, badge, onLogout, onOpenProfile }: {
+  authUser: AuthUser;
+  badge: { label: string; className: string } | null;
+  onLogout: () => void;
+  onOpenProfile: () => void;
+}) {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [notifEnabled, setNotifEnabled] = useState(true);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-2 rounded-lg p-1 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer">
+          <Avatar className="h-8 w-8 ring-2 ring-rose-200 dark:ring-rose-800">
+            <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-xs">
+              {getInitials(authUser.name)}
+            </AvatarFallback>
+          </Avatar>
+          <ChevronDown className="w-3 h-3 text-muted-foreground hidden sm:block" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        {/* User Header */}
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-10 w-10 ring-2 ring-rose-200 dark:ring-rose-800">
+              <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-sm">
+                {getInitials(authUser.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{authUser.name}</p>
+              {badge && (
+                <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium mt-0.5 ${badge.className}`}>
+                  {badge.label}
+                </span>
+              )}
+              <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+                <Building2 className="w-3 h-3" />
+                {authUser.storeName}
+              </p>
+            </div>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={onOpenProfile} className="cursor-pointer">
+            <UserCircle className="mr-2 h-4 w-4" />
+            My Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        {/* Settings subsection */}
+        <DropdownMenuGroup>
+          <DropdownMenuCheckboxItem
+            checked={notifEnabled}
+            onCheckedChange={setNotifEnabled}
+            className="cursor-pointer"
+          >
+            <Bell className="mr-2 h-4 w-4" />
+            Push Notifications
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuItem
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="cursor-pointer"
+          >
+            {resolvedTheme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+            {resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem className="cursor-pointer">
+            <LifeBuoy className="mr-2 h-4 w-4" />
+            Help &amp; Support
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Send Feedback
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout} variant="destructive" className="cursor-pointer">
+          <LogOut className="mr-2 h-4 w-4" />
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ProfileDialog({ authUser, badge, open, onClose }: {
+  authUser: AuthUser;
+  badge: { label: string; className: string } | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>My Profile</DialogTitle>
+          <DialogDescription>Your account information</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 ring-2 ring-rose-200 dark:ring-rose-800">
+              <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-xl">
+                {getInitials(authUser.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="text-lg font-bold">{authUser.name}</h3>
+              {badge && (
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1 ${badge.className}`}>
+                  {badge.label}
+                </span>
+              )}
+            </div>
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-sm">
+              <Phone className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">Phone:</span>
+              <span>{authUser.phone}</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">Store:</span>
+              <span>{authUser.storeName}</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">City:</span>
+              <span>{authUser.storeCity}</span>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── SECTION NAVIGATION (sticky pills) ──────────────────────────
+function SectionNav({ sections, activeSection }: {
+  sections: Array<{ id: string; label: string }>;
+  activeSection: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            if (sections.some((s) => s.id === id)) {
+              const btn = containerRef.current?.querySelector(`[data-section="${id}"]`);
+              if (btn) {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }
+            }
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -70% 0px', threshold: 0 }
+    );
+
+    for (const s of sections) {
+      const el = document.getElementById(s.id);
+      if (el) observer.observe(el);
+    }
+
+    return () => observer.disconnect();
+  }, [sections]);
+
+  return (
+    <div ref={containerRef} className="sticky top-[65px] z-30 -mx-4 px-4 py-2 bg-gradient-to-b from-background to-background/80 backdrop-blur-sm">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            data-section={s.id}
+            onClick={() => handleScroll(s.id)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border cursor-pointer ${
+              activeSection === s.id
+                ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/25'
+                : 'bg-white/50 dark:bg-gray-800/50 text-muted-foreground border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-600 dark:hover:text-rose-400'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function useActiveSection(sectionIds: string[]) {
+  const [active, setActive] = useState(sectionIds[0] || '');
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActive(entry.target.id);
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0 }
+    );
+
+    for (const id of sectionIds) {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    }
+
+    return () => observer.disconnect();
+  }, [sectionIds]);
+
+  return active;
 }
 
 // ─── ROLE ACCENT COLORS ────────────────────────────────────────
@@ -622,6 +915,7 @@ export default function Home() {
   const [recordDialogOpen, setRecordDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [recordCallback, setRecordCallback] = useState<(() => void) | null>(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
   // ─── Auth State ──────────────────────────────────────────────
   const [authScreen, setAuthScreen] = useState<AuthScreen>(() => {
@@ -855,27 +1149,23 @@ export default function Home() {
               {authUser && (
                 <div className="hidden sm:flex items-center gap-2.5 ml-1">
                   <Separator orientation="vertical" className="h-8" />
-                  <div className="flex items-center gap-2.5">
-                    <Avatar className="h-8 w-8 ring-2 ring-rose-200 dark:ring-rose-800">
-                      <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-xs">
-                        {getInitials(authUser.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="hidden lg:block">
-                      <p className="text-sm font-semibold leading-tight">{authUser.name}</p>
-                      <div className="flex items-center gap-1.5">
-                        {userBadge && (
-                          <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium ${userBadge.className}`}>
-                            {userBadge.label}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">{authUser.storeName}</span>
-                      </div>
+                  <div className="hidden lg:block">
+                    <p className="text-sm font-semibold leading-tight">{authUser.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      {userBadge && (
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium ${userBadge.className}`}>
+                          {userBadge.label}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{authUser.storeName}</span>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-red-500 h-8 px-2">
-                    <LogOut className="w-4 h-4" />
-                  </Button>
+                  <ProfileDropdown
+                    authUser={authUser}
+                    badge={userBadge}
+                    onLogout={handleLogout}
+                    onOpenProfile={() => setProfileDialogOpen(true)}
+                  />
                 </div>
               )}
 
@@ -904,12 +1194,15 @@ export default function Home() {
                 </nav>
               )}
 
-              {/* Authenticated user actions (mobile) + Book Appointment link */}
+              {/* Authenticated user actions (mobile) */}
               {authUser && (
                 <div className="flex lg:hidden items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleLogout} aria-label="Logout">
-                    <LogOut className="w-4 h-4" />
-                  </Button>
+                  <ProfileDropdown
+                    authUser={authUser}
+                    badge={userBadge}
+                    onLogout={handleLogout}
+                    onOpenProfile={() => setProfileDialogOpen(true)}
+                  />
                 </div>
               )}
             </div>
@@ -964,27 +1257,56 @@ export default function Home() {
 
       {/* ─── FOOTER (with bottom nav padding) ──────────── */}
       <footer className={`border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto ${!authUser ? 'pb-bottom-nav' : ''}`}>
-        <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-              <Scissors className="w-3 h-3 text-white" />
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* Top row: brand + links */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-sm">
+                <Scissors className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Dream Look</p>
+                <p className="text-[10px] text-muted-foreground">3 Locations Across Bangalore</p>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
+
+            {/* Quick Links */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" /> Help Center
+              </a>
+              <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Privacy Policy</a>
+              <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Terms of Service</a>
+              <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" /> Contact Support
+              </a>
+            </div>
+
+            {/* Social Links (decorative) */}
+            <div className="flex items-center gap-2">
+              {['Instagram', 'Facebook', 'X'].map((platform) => (
+                <a key={platform} href="#" aria-label={platform}
+                  className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:border-rose-300 dark:hover:border-rose-700 transition-all hover:shadow-sm">
+                  {platform === 'Instagram' && <Heart className="w-3 h-3" />}
+                  {platform === 'Facebook' && <Users className="w-3 h-3" />}
+                  {platform === 'X' && <MessageSquare className="w-3 h-3" />}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom row: copyright + version */}
+          <Separator className="my-3" />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5">
+            <p className="text-[10px] text-muted-foreground">
               &copy; {new Date().getFullYear()} Dream Look Salon. All rights reserved.
             </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Privacy Policy</a>
-            <span className="text-xs text-muted-foreground">·</span>
-            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Terms of Service</a>
-            <span className="text-xs text-muted-foreground">·</span>
-            <a href="#" className="text-xs text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Contact Us</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <p className="text-xs text-muted-foreground">3 Locations Across Bangalore</p>
-            <p className="text-xs text-muted-foreground">
-              Built with <Heart className="w-3 h-3 inline text-rose-500 fill-rose-500" /> for beautiful salons
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-[10px] text-muted-foreground">
+                Built with <Heart className="w-3 h-3 inline text-rose-500 fill-rose-500" /> for beautiful salons
+              </p>
+              <span className="text-[10px] text-muted-foreground/60">v2.0</span>
+            </div>
           </div>
         </div>
       </footer>
@@ -994,6 +1316,14 @@ export default function Home() {
         appointment={selectedAppointment}
         onSuccess={recordCallback}
       />
+      {authUser && (
+        <ProfileDialog
+          authUser={authUser}
+          badge={userBadge}
+          open={profileDialogOpen}
+          onClose={() => setProfileDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -2839,6 +3169,674 @@ function TodayVsYesterdayComparison({ storeId }: { storeId: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// MANAGER EXPENSE SECTION
+// ═══════════════════════════════════════════════════════════════════
+function ManagerExpenseSection({ storeId }: { storeId: string }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+
+  const { data: todayExpenses, refetch: refetchToday } = useFetch<Expense[]>(
+    storeId ? `/api/salon/expenses?storeId=${storeId}&from=${today}&to=${today}` : null
+  );
+  const { data: monthExpenses, loading: monthLoading, refetch: refetchMonth } = useFetch<Expense[]>(
+    storeId ? `/api/salon/expenses?storeId=${storeId}&from=${monthStart}&to=${today}` : null
+  );
+
+  const [expCategory, setExpCategory] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expDate, setExpDate] = useState(today);
+  const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  const todayTotal = useMemo(() => (todayExpenses || []).reduce((s, e) => s + e.amount, 0), [todayExpenses]);
+  const monthTotal = useMemo(() => (monthExpenses || []).reduce((s, e) => s + e.amount, 0), [monthExpenses]);
+
+  const handleAddExpense = useCallback(async () => {
+    if (!storeId || !expCategory || !expDesc || !expAmount || !expDate) return;
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/expenses', { storeId, category: expCategory, description: expDesc, amount: parseFloat(expAmount), expenseDate: expDate });
+      toast.success('Expense added successfully');
+      setExpCategory('');
+      setExpDesc('');
+      setExpAmount('');
+      setExpDate(today);
+      setShowForm(false);
+      refetchToday();
+      refetchMonth();
+    } catch (e) {
+      toast.error('Failed to add expense', { description: (e as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [storeId, expCategory, expDesc, expAmount, expDate, today, refetchToday, refetchMonth]);
+
+  const recentExpenses = useMemo(() => (monthExpenses || []).slice(0, 8), [monthExpenses]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-red-500" />
+            <CardTitle className="text-base">Expenses</CardTitle>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="text-xs h-8">
+            <Plus className={`w-3.5 h-3.5 mr-1 transition-transform ${showForm ? 'rotate-45' : ''}`} />
+            {showForm ? 'Cancel' : 'Add Expense'}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Today&apos;s Expenses</p>
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(todayTotal)}</p>
+            <p className="text-[10px] text-muted-foreground">{(todayExpenses || []).length} entries</p>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">This Month</p>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{formatCurrency(monthTotal)}</p>
+            <p className="text-[10px] text-muted-foreground">{format(new Date(), 'MMM yyyy')}</p>
+          </div>
+        </div>
+
+        {/* Quick Add Expense Form */}
+        {showForm && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 p-4 rounded-xl border-2 border-dashed border-red-200 dark:border-red-800">
+            <h4 className="text-sm font-semibold flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5 text-red-500" /> Quick Add Expense
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Category</Label>
+                <Select value={expCategory} onValueChange={setExpCategory}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Description</Label>
+                <Input value={expDesc} onChange={e => setExpDesc(e.target.value)} placeholder="e.g., Groceries" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Amount (₹)</Label>
+                <Input type="number" value={expAmount} onChange={e => setExpAmount(e.target.value)} placeholder="0" className="h-9" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Date</Label>
+                <Input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} className="h-9" />
+              </div>
+            </div>
+            <Button size="sm" onClick={handleAddExpense} disabled={submitting || !expCategory || !expDesc || !expAmount}
+              className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-md shadow-red-500/20 text-xs h-8">
+              {submitting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+              Save Expense
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Recent Expenses List */}
+        {monthLoading ? (
+          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+        ) : !recentExpenses || recentExpenses.length === 0 ? (
+          <div className="flex flex-col items-center py-8 text-center">
+            <div className="w-12 h-12 rounded-xl bg-muted/80 flex items-center justify-center mb-2">
+              <Receipt className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium">No expenses this month</p>
+            <p className="text-xs text-muted-foreground">Tap &quot;Add Expense&quot; to record one</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+            {recentExpenses.map((exp) => (
+              <div key={exp.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-shadow">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+                  {exp.category === 'RENT' && <Building2 className="w-4 h-4 text-amber-500" />}
+                  {exp.category === 'UTILITIES' && <Zap className="w-4 h-4 text-blue-500" />}
+                  {exp.category === 'SALARY' && <Users className="w-4 h-4 text-emerald-500" />}
+                  {exp.category === 'SUPPLIES' && <Package className="w-4 h-4 text-violet-500" />}
+                  {exp.category === 'MAINTENANCE' && <Wrench className="w-4 h-4 text-orange-500" />}
+                  {exp.category === 'MARKETING' && <Flame className="w-4 h-4 text-pink-500" />}
+                  {exp.category === 'OTHER' && <FileText className="w-4 h-4 text-gray-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{exp.description}</p>
+                    <ExpenseCategoryBadge category={exp.category} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{format(new Date(exp.expenseDate), 'MMM d, yyyy')}</p>
+                </div>
+                <span className="text-sm font-semibold text-red-600 dark:text-red-400 shrink-0">
+                  -{formatCurrency(exp.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER CUSTOMER MANAGEMENT SECTION
+// ═══════════════════════════════════════════════════════════════════
+function ManagerCustomerSection({ storeId }: { storeId: string }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [newCustOpen, setNewCustOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: customers, loading, error, refetch } = useFetch<Customer[]>('/api/salon/customers');
+  const { data: customerAppts, loading: apptsLoading } = useFetch<Appointment[]>(
+    selectedCustomer ? `/api/salon/appointments?customerId=${selectedCustomer.id}` : null,
+  );
+
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return customers;
+    return customers.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q),
+    );
+  }, [customers, searchQuery]);
+
+  const handleCreateCustomer = useCallback(async () => {
+    if (!newName.trim() || !newPhone.trim()) {
+      toast.error('Please fill in name and phone');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/customers', {
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        email: newEmail.trim() || undefined,
+      });
+      toast.success('Customer added successfully');
+      setNewName('');
+      setNewPhone('');
+      setNewEmail('');
+      setNewCustOpen(false);
+      refetch();
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes('already exists')) {
+        toast.error('Duplicate phone', { description: 'A customer with this phone number already exists.' });
+      } else {
+        toast.error('Failed to add customer', { description: msg });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [newName, newPhone, newEmail, refetch]);
+
+  const handleSelectCustomer = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setProfileOpen(true);
+  }, []);
+
+  // Compute stats for selected customer
+  const selectedCustomerStats = useMemo(() => {
+    if (!customerAppts) return { totalVisits: 0, totalSpend: 0, completedVisits: 0 };
+    const completed = customerAppts.filter((a) => a.status === 'COMPLETED');
+    const totalSpend = completed.reduce((sum, a) => sum + (a.service?.price || 0), 0);
+    return {
+      totalVisits: customerAppts.length,
+      totalSpend,
+      completedVisits: completed.length,
+    };
+  }, [customerAppts]);
+
+  return (
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Customers</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                {(customers || []).length} total customers
+              </CardDescription>
+            </div>
+            <Button size="sm" onClick={() => setNewCustOpen(true)} className="bg-rose-500 hover:bg-rose-600 text-xs h-8">
+              <UserPlus className="w-3.5 h-3.5 mr-1" /> New Customer
+            </Button>
+          </div>
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 bg-muted/50 dark:bg-muted/20"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          ) : error ? (
+            <ErrorCard message="Failed to load customers" onRetry={refetch} />
+          ) : filteredCustomers.length === 0 ? (
+            <EmptyState icon={Users} title={searchQuery ? 'No customers found' : 'No customers yet'} description={searchQuery ? 'Try a different search term' : 'Add your first customer to get started'} />
+          ) : (
+            <ScrollArea className="max-h-96">
+              <div className="overflow-x-auto rounded-xl">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="sticky top-0 bg-background">
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.slice(0, 20).map((customer) => (
+                      <TableRow key={customer.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleSelectCustomer(customer)}>
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-rose-100 to-pink-100 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300">
+                                {getInitials(customer.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium">{customer.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{customer.phone}</TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{customer.email || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handleSelectCustomer(customer); }}>
+                            View Profile
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Customer Profile Dialog */}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          {selectedCustomer && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 ring-2 ring-rose-200 dark:ring-rose-800">
+                    <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-sm">
+                      {getInitials(selectedCustomer.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p>{selectedCustomer.name}</p>
+                    <p className="text-sm font-normal text-muted-foreground">{selectedCustomer.phone}</p>
+                  </div>
+                </DialogTitle>
+                <DialogDescription>Customer profile and appointment history</DialogDescription>
+              </DialogHeader>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3 mt-2">
+                {[
+                  { label: 'Total Visits', value: String(selectedCustomerStats.totalVisits), color: 'text-blue-600 dark:text-blue-400' },
+                  { label: 'Completed', value: String(selectedCustomerStats.completedVisits), color: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Total Spend', value: formatCurrency(selectedCustomerStats.totalSpend), color: 'text-rose-600 dark:text-rose-400' },
+                ].map((s) => (
+                  <div key={s.label} className="p-3 rounded-xl bg-muted/50 dark:bg-muted/20 text-center">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                    <p className={`text-sm font-bold mt-1 ${s.color}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Contact Info */}
+              <div className="space-y-2 p-3 rounded-xl bg-muted/30 dark:bg-muted/10">
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedCustomer.email || 'No email provided'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedCustomer.phone}</span>
+                </div>
+              </div>
+
+              {/* Appointment History */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Appointment History</h4>
+                {apptsLoading ? (
+                  <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+                ) : !customerAppts || customerAppts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No appointments yet</p>
+                ) : (
+                  <ScrollArea className="max-h-64">
+                    <div className="space-y-2">
+                      {customerAppts.sort((a, b) => b.date.localeCompare(a.date)).map((apt) => (
+                        <div key={apt.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30 flex items-center justify-center shrink-0">
+                            <Calendar className="w-4 h-4 text-rose-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{apt.service?.name || 'Service'}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{apt.date}</span>
+                              <span>•</span>
+                              <span>{formatTime(apt.time)}</span>
+                              {apt.store && (
+                                <>
+                                  <span>•</span>
+                                  <span className="truncate">{apt.store.name}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <StatusBadge status={apt.status} />
+                            <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                              {formatCurrency(apt.service?.price || 0)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* New Customer Dialog */}
+      <Dialog open={newCustOpen} onOpenChange={setNewCustOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-rose-500" />
+              Add New Customer
+            </DialogTitle>
+            <DialogDescription>Create a new customer record</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="cust-name">Full Name *</Label>
+              <Input id="cust-name" placeholder="e.g., Priya Sharma" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-phone">Phone Number *</Label>
+              <Input id="cust-phone" placeholder="e.g., 9876543210" value={newPhone} onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} type="tel" />
+              <p className="text-xs text-muted-foreground">10-digit mobile number</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-email">Email (optional)</Label>
+              <Input id="cust-email" type="email" placeholder="e.g., priya@example.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewCustOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateCustomer} disabled={submitting || !newName.trim() || !newPhone.trim()} className="bg-rose-500 hover:bg-rose-600">
+              {submitting ? <RefreshCw className="w-4 h-4 animate-spin mr-1.5" /> : <Check className="w-4 h-4 mr-1.5" />}
+              Add Customer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER CUSTOMER ANALYTICS SECTION
+// ═══════════════════════════════════════════════════════════════════
+interface CustomerAnalyticsData {
+  topCustomers: Array<{
+    customerId: string;
+    customerName: string;
+    phone: string;
+    totalVisits: number;
+    totalSpend: number;
+    totalAppointments: number;
+  }>;
+  totalCustomers: number;
+  newCustomers: number;
+  returningCustomers: number;
+  newToReturningRatio: {
+    new: number;
+    returning: number;
+    newPercent: number;
+    returningPercent: number;
+  };
+  customerGrowth: Array<{ month: string; newCustomers: number }>;
+  avgVisits: number;
+  totalAppointments: number;
+  completedAppointments: number;
+}
+
+function OwnerCustomerAnalyticsSection() {
+  const { data: analytics, loading, error, refetch } = useFetch<CustomerAnalyticsData>('/api/salon/analytics/customers');
+
+  const growthChartData = useMemo(() => {
+    if (!analytics?.customerGrowth) return [];
+    return analytics.customerGrowth.map((g) => {
+      const [y, m] = g.month.split('-');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return {
+        month: monthNames[parseInt(m, 10) - 1] + ' ' + y.slice(2),
+        newCustomers: g.newCustomers,
+      };
+    });
+  }, [analytics]);
+
+  const topCustomersChartData = useMemo(() => {
+    if (!analytics?.topCustomers) return [];
+    return analytics.topCustomers.slice(0, 10).map((c) => ({
+      name: c.customerName.length > 12 ? c.customerName.slice(0, 12) + '…' : c.customerName,
+      spend: c.totalSpend,
+      visits: c.totalVisits,
+    }));
+  }, [analytics]);
+
+  const COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#a855f7', '#ec4899', '#14b8a6', '#84cc16'];
+
+  if (loading) return <ViewSkeleton />;
+  if (error) return <ErrorCard message="Failed to load customer analytics" onRetry={refetch} />;
+  if (!analytics) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          <span className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-purple-500" />
+          Customer Analytics
+        </h2>
+        <p className="text-sm text-muted-foreground ml-3">Insights into customer acquisition, retention, and spending</p>
+      </div>
+
+      {/* Overview Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Users} label="Total Customers" value={String(analytics.totalCustomers)} sub={`${analytics.totalAppointments} total appointments`} gradient="bg-gradient-to-r from-rose-500 to-pink-500" />
+        <StatCard icon={UserPlus} label="New Customers" value={String(analytics.newCustomers)} sub={`${analytics.newToReturningRatio.newPercent}% of total`} gradient="bg-gradient-to-r from-blue-500 to-indigo-500" />
+        <StatCard icon={History} label="Returning" value={String(analytics.returningCustomers)} sub={`${analytics.newToReturningRatio.returningPercent}% retention`} gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
+        <StatCard icon={Activity} label="Avg Visits" value={String(analytics.avgVisits)} sub={`${analytics.completedAppointments} completed`} gradient="bg-gradient-to-r from-amber-500 to-orange-500" />
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Customer Growth Chart */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Customer Growth</CardTitle>
+            <CardDescription>New customers added per month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {growthChartData.length === 0 ? (
+              <EmptyState icon={TrendingUp} title="No data yet" description="Customer growth data will appear over time" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={growthChartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <RTooltip />
+                  <Bar dataKey="newCustomers" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* New vs Returning Pie */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">New vs Returning</CardTitle>
+            <CardDescription>Customer distribution breakdown</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'New', value: analytics.newToReturningRatio.new },
+                      { name: 'Returning', value: analytics.newToReturningRatio.returning },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    <Cell fill="#f43f5e" />
+                    <Cell fill="#22c55e" />
+                  </Pie>
+                  <RTooltip formatter={(v: number, name: string) => [`${v} customers`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-6 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500" />
+                  <span className="text-sm">New ({analytics.newToReturningRatio.newPercent}%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className="text-sm">Returning ({analytics.newToReturningRatio.returningPercent}%)</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Customers Table */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Top Customers by Spend</CardTitle>
+              <CardDescription className="text-xs mt-0.5">Ranked by total revenue generated</CardDescription>
+            </div>
+            {analytics.topCustomers.length > 0 && (
+              <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                <Trophy className="w-3 h-3 mr-1" />
+                Top {analytics.topCustomers.length}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {analytics.topCustomers.length === 0 ? (
+            <EmptyState icon={Users} title="No spending data" description="Customer spending data will appear as transactions are completed" />
+          ) : (
+            <div className="overflow-x-auto rounded-xl">
+              <Table>
+                <TableHeader>
+                  <TableRow className="sticky top-0 bg-background">
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                    <TableHead className="text-right">Visits</TableHead>
+                    <TableHead className="text-right">Total Spend</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">Avg/Visit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analytics.topCustomers.map((c, i) => (
+                    <TableRow key={c.customerId} className="hover:bg-muted/50 transition-colors">
+                      <TableCell>
+                        {i === 0 ? <Trophy className="w-4 h-4 text-amber-500" /> : i === 1 ? <Medal className="w-4 h-4 text-gray-400" /> : i === 2 ? <Medal className="w-4 h-4 text-amber-700" /> : <span className="text-muted-foreground text-sm">{i + 1}</span>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-[10px] font-medium bg-gradient-to-br from-rose-100 to-pink-100 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300">
+                              {getInitials(c.customerName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{c.customerName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{c.phone}</TableCell>
+                      <TableCell className="text-right text-sm font-medium">{c.totalVisits}</TableCell>
+                      <TableCell className="text-right text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(c.totalSpend)}</TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground hidden sm:table-cell">
+                        {c.totalVisits > 0 ? formatCurrency(c.totalSpend / c.totalVisits) : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Customers Bar Chart */}
+      {topCustomersChartData.length > 0 && (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Top Spenders</CardTitle>
+            <CardDescription>Visual breakdown of top customer spending</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topCustomersChartData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCurrency(v)} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10 }} />
+                <RTooltip formatter={(v: number) => formatCurrency(v)} />
+                <Bar dataKey="spend" radius={[0, 4, 4, 0]}>
+                  {topCustomersChartData.map((_, index) => (
+                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MANAGER VIEW - MANAGE STORE
 // ═══════════════════════════════════════════════════════════════════
 function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
@@ -2936,6 +3934,17 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
 
   const selectedStoreData = stores?.find(s => s.id === activeStoreId);
 
+  const managerSections = [
+    { id: 'mgr-overview', label: 'Overview' },
+    { id: 'mgr-appointments', label: 'Appointments' },
+    { id: 'mgr-staff', label: 'Staff' },
+    { id: 'mgr-inventory', label: 'Inventory' },
+    { id: 'mgr-customers', label: 'Customers' },
+    { id: 'mgr-expenses', label: 'Expenses' },
+    { id: 'mgr-day-close', label: 'Day Close' },
+  ];
+  const activeManagerSection = useActiveSection(managerSections.map(s => s.id));
+
   if (storesLoading) return <ViewSkeleton />;
 
   return (
@@ -2973,7 +3982,11 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         )}
       </div>
 
+      {/* Section Navigation */}
+      <SectionNav sections={managerSections} activeSection={activeManagerSection} />
+
       {/* Overview Stats */}
+      <div id="mgr-overview" className="scroll-mt-36 space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={DollarSign} label="Today's Revenue" value={formatCurrency(todayRevenue)} sub={`${todayTxCount} completed transactions`} gradient="bg-gradient-to-r from-rose-500 to-pink-500" />
         <StatCard icon={Calendar} label="Appointments" value={String((appointments || []).length)} sub={`${(appointments || []).filter(a => a.status === 'PENDING').length} pending`} gradient="bg-gradient-to-r from-blue-500 to-indigo-500" />
@@ -2983,8 +3996,10 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
 
       {/* Today vs Yesterday Comparison */}
       <TodayVsYesterdayComparison storeId={activeStoreId} />
+      </div>{/* end mgr-overview */}
 
       {/* Staff Attendance */}
+      <div id="mgr-staff" className="scroll-mt-36">
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -3038,8 +4053,10 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
           )}
         </CardContent>
       </Card>
+      </div>{/* end mgr-staff */}
 
       {/* Appointments */}
+      <div id="mgr-appointments" className="scroll-mt-36">
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -3105,8 +4122,10 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
           )}
         </CardContent>
       </Card>
+      </div>{/* end mgr-appointments */}
 
       {/* Inventory */}
+      <div id="mgr-inventory" className="scroll-mt-36">
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -3169,6 +4188,12 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         storeId={activeStoreId}
         onSuccess={() => { refetchAppts(); setNewApptDialogOpen(false); }}
       />
+      </div>{/* end mgr-inventory */}
+
+      {/* ─── CUSTOMER MANAGEMENT ─────────────────────────────── */}
+      <div id="mgr-customers" className="scroll-mt-36">
+      <ManagerCustomerSection storeId={activeStoreId} />
+      </div>
 
       {/* ─── PAYMENT METHOD ON RECORD SERVICE ────────────────── */}
       <ManagerDayTransactionsSection storeId={activeStoreId} authUser={authUser} />
@@ -3179,8 +4204,15 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
       {/* ─── DAILY PAYMENT ───────────────────────────────────── */}
       <ManagerDailyPaymentSection storeId={activeStoreId} authUser={authUser} />
 
+      {/* ─── EXPENSES ────────────────────────────────────────── */}
+      <div id="mgr-expenses" className="scroll-mt-36">
+      <ManagerExpenseSection storeId={activeStoreId} />
+      </div>
+
       {/* ─── DAY CLOSE BUTTON ────────────────────────────────── */}
+      <div id="mgr-day-close" className="scroll-mt-36">
       <ManagerDayCloseSection storeId={activeStoreId} authUser={authUser} />
+      </div>
     </div>
   );
 }
@@ -4453,6 +5485,376 @@ function OwnerBranchDetailView({ storeId, onBack }: { storeId: string; onBack: (
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// OWNER EXPENSE SECTION
+// ═══════════════════════════════════════════════════════════════════
+function OwnerExpenseSection({ monthAnalytics }: { monthAnalytics: AnalyticsData | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const lastMonthStart = format(startOfMonth(subDays(new Date(), 30)), 'yyyy-MM-dd');
+  const lastMonthEnd = format(endOfMonth(subDays(new Date(), 30)), 'yyyy-MM-dd');
+
+  const [dateRange, setDateRange] = useState<'this-month' | 'last-month' | 'all'>('this-month');
+  const [filterStore, setFilterStore] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [expStoreId, setExpStoreId] = useState('');
+  const [expCategory, setExpCategory] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expDate, setExpDate] = useState(today);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+
+  const fromDate = dateRange === 'this-month' ? monthStart : dateRange === 'last-month' ? lastMonthStart : '';
+  const toDate = dateRange === 'this-month' ? today : dateRange === 'last-month' ? lastMonthEnd : '';
+
+  let expenseUrl = '/api/salon/expenses';
+  const params: string[] = [];
+  if (fromDate) params.push(`from=${fromDate}`);
+  if (toDate) params.push(`to=${toDate}`);
+  if (filterStore) params.push(`storeId=${filterStore}`);
+  if (filterCategory) params.push(`category=${filterCategory}`);
+  if (params.length > 0) expenseUrl += '?' + params.join('&');
+
+  const { data: expenses, loading: expLoading, refetch: refetchExpenses } = useFetch<Expense[]>(expenseUrl);
+
+  const totalExpenses = useMemo(() => (expenses || []).reduce((s, e) => s + e.amount, 0), [expenses]);
+
+  // Category breakdown
+  const categoryBreakdown = useMemo(() => {
+    if (!expenses || expenses.length === 0) return [];
+    const map: Record<string, number> = {};
+    for (const e of expenses) {
+      map[e.category] = (map[e.category] || 0) + e.amount;
+    }
+    return Object.entries(map)
+      .map(([cat, amt]) => ({
+        category: cat,
+        label: cat.charAt(0) + cat.slice(1).toLowerCase(),
+        amount: amt,
+        pct: totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses, totalExpenses]);
+
+  // Pie chart data
+  const pieData = useMemo(() => {
+    const COLORS: Record<string, string> = {
+      RENT: '#f59e0b', UTILITIES: '#3b82f6', SALARY: '#10b981',
+      SUPPLIES: '#8b5cf6', MAINTENANCE: '#f97316', MARKETING: '#ec4899', OTHER: '#6b7280',
+    };
+    return categoryBreakdown.map(c => ({
+      name: c.label,
+      value: c.amount,
+      fill: COLORS[c.category] || '#6b7280',
+    }));
+  }, [categoryBreakdown]);
+
+  // Bar chart data
+  const barData = useMemo(() => {
+    return categoryBreakdown.map(c => ({
+      category: c.label,
+      amount: c.amount,
+      fill: pieData.find(p => p.name === c.label)?.fill || '#6b7280',
+    }));
+  }, [categoryBreakdown, pieData]);
+
+  // Net profit
+  const ownerShare = monthAnalytics?.totalOwnerShare || 0;
+  const netProfit = ownerShare - totalExpenses;
+
+  const handleAddExpense = useCallback(async () => {
+    if (!expStoreId || !expCategory || !expDesc || !expAmount || !expDate) return;
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/expenses', { storeId: expStoreId, category: expCategory, description: expDesc, amount: parseFloat(expAmount), expenseDate: expDate });
+      toast.success('Expense added successfully');
+      setDialogOpen(false);
+      setExpStoreId('');
+      setExpCategory('');
+      setExpDesc('');
+      setExpAmount('');
+      setExpDate(today);
+      refetchExpenses();
+    } catch (e) {
+      toast.error('Failed to add expense', { description: (e as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [expStoreId, expCategory, expDesc, expAmount, expDate, today, refetchExpenses]);
+
+  return (
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold">
+                <span className="w-1 h-5 rounded-full bg-gradient-to-b from-red-500 to-rose-500" />
+                Expense Management
+              </h2>
+              <p className="text-sm text-muted-foreground ml-3">Track and manage salon operating costs</p>
+            </div>
+            <Button size="sm" onClick={() => setDialogOpen(true)}
+              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20 w-fit">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Expense
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Filters row */}
+          <div className="flex flex-wrap gap-2">
+            {/* Date Range Pills */}
+            <div className="flex gap-1 bg-muted/50 dark:bg-muted/20 rounded-lg p-0.5">
+              {([['this-month', 'This Month'], ['last-month', 'Last Month'], ['all', 'All Time']] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setDateRange(key)}
+                  className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all duration-200 ${
+                    dateRange === key
+                      ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Store Filter */}
+            <Select value={filterStore} onValueChange={(v) => setFilterStore(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue placeholder="All Stores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Stores</SelectItem>
+                {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name.replace('Dream Look - ', '')}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {/* Category Filter */}
+            <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="w-[150px] h-8 text-xs">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Categories</SelectItem>
+                {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Summary Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 rounded-xl border hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total Expenses</p>
+              <p className="text-base font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpenses)}</p>
+              <p className="text-[10px] text-muted-foreground">{(expenses || []).length} transactions</p>
+            </div>
+            <div className="p-4 rounded-xl border hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+              </div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Owner Revenue</p>
+              <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(ownerShare)}</p>
+              <p className="text-[10px] text-muted-foreground">{dateRange === 'this-month' ? 'This month' : dateRange === 'last-month' ? 'Last month' : 'All time'}</p>
+            </div>
+            <div className="p-4 rounded-xl border hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-lg ${netProfit >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30'} flex items-center justify-center`}>
+                  <DollarSign className={`w-4 h-4 ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} />
+                </div>
+              </div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Net Profit</p>
+              <p className={`text-base font-bold ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(netProfit)}</p>
+              <p className="text-[10px] text-muted-foreground">Revenue − Expenses</p>
+            </div>
+            <div className="p-4 rounded-xl border hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+              </div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Top Category</p>
+              <p className="text-base font-bold text-violet-600 dark:text-violet-400">{categoryBreakdown[0]?.label || '—'}</p>
+              <p className="text-[10px] text-muted-foreground">{categoryBreakdown[0] ? `${categoryBreakdown[0].pct}% of total` : 'No data'}</p>
+            </div>
+          </div>
+
+          {/* Charts */}
+          {categoryBreakdown.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Pie Chart */}
+              <div className="rounded-xl border p-4">
+                <h3 className="text-sm font-medium mb-3">Expense Distribution</h3>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="value" stroke="none">
+                      {pieData.map((entry, idx) => (
+                        <Cell key={idx} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <RTooltip formatter={(v: number) => formatCurrency(v)} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {pieData.map((entry) => (
+                    <div key={entry.name} className="flex items-center gap-1.5 text-[10px]">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.fill }} />
+                      <span className="text-muted-foreground">{entry.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bar Chart */}
+              <div className="rounded-xl border p-4">
+                <h3 className="text-sm font-medium mb-3">Category Breakdown</h3>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={barData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="category" width={90} tick={{ fontSize: 11 }} />
+                    <RTooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
+                      {barData.map((entry, idx) => (
+                        <Cell key={idx} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Category Breakdown Badges */}
+          {categoryBreakdown.length > 0 && (
+            <div className="rounded-xl border p-4">
+              <h3 className="text-sm font-medium mb-3">Category-wise Breakdown</h3>
+              <div className="space-y-3">
+                {categoryBreakdown.map((cat) => {
+                  const config = EXPENSE_CATEGORY_CONFIG[cat.category] || EXPENSE_CATEGORY_CONFIG.OTHER;
+                  return (
+                    <div key={cat.category} className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 w-28 shrink-0">
+                        <ExpenseCategoryBadge category={cat.category} />
+                      </div>
+                      <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${config.bg.replace(/dark:bg-\S+/g, '').trim()}`}
+                          style={{ width: `${cat.pct}%`, backgroundColor: pieData.find(p => p.name === cat.label)?.fill }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-muted-foreground w-20 text-right shrink-0">{formatCurrency(cat.amount)}</span>
+                      <span className="text-xs font-medium text-muted-foreground w-10 text-right shrink-0">{cat.pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Expenses Table */}
+          {expLoading ? (
+            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          ) : !expenses || expenses.length === 0 ? (
+            <EmptyState icon={Receipt} title="No expenses found" description="No expenses match the selected filters. Try adjusting the date range or filters." />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="sticky top-0 bg-background">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Store</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="hidden sm:table-cell">Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {expenses.map((exp, idx) => (
+                    <TableRow key={exp.id} className={`hover:bg-muted/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                      <TableCell className="text-xs whitespace-nowrap">{format(new Date(exp.expenseDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="text-xs font-medium">{exp.store?.name?.replace('Dream Look - ', '') || '—'}</TableCell>
+                      <TableCell><ExpenseCategoryBadge category={exp.category} /></TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell max-w-[250px] truncate">{exp.description}</TableCell>
+                      <TableCell className="text-right text-sm font-medium text-red-600 dark:text-red-400">
+                        -{formatCurrency(exp.amount)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={4} className="font-semibold text-xs">Total ({(expenses || []).length} expenses)</TableCell>
+                    <TableCell className="text-right font-bold text-red-600 dark:text-red-400">-{formatCurrency(totalExpenses)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Receipt className="w-4 h-4 text-rose-500" /> Add New Expense</DialogTitle>
+            <DialogDescription>Record a new expense for your salon</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Store</Label>
+              <Select value={expStoreId} onValueChange={setExpStoreId}>
+                <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                <SelectContent>
+                  {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Category</Label>
+              <Select value={expCategory} onValueChange={setExpCategory}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Description</Label>
+              <Input placeholder="e.g., Monthly electricity bill" value={expDesc} onChange={e => setExpDesc(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Amount (₹)</Label>
+                <Input type="number" placeholder="0" value={expAmount} onChange={e => setExpAmount(e.target.value)} min="0" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Date</Label>
+                <Input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddExpense} disabled={submitting || !expStoreId || !expCategory || !expDesc || !expAmount}
+              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-md shadow-rose-500/20">
+              {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+              Add Expense
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // OWNER VIEW - OWNER PANEL
 // ═══════════════════════════════════════════════════════════════════
 function OwnerView() {
@@ -4587,6 +5989,18 @@ function OwnerView() {
   const animatedMonthRev = useAnimatedNumber(monthAnalytics?.totalRevenue || 0);
   const animatedYearRev = useAnimatedNumber(yearAnalytics?.totalRevenue || 0);
 
+  const ownerSections = [
+    { id: 'owner-overview', label: 'Overview' },
+    { id: 'owner-stores', label: 'Stores' },
+    { id: 'owner-customers', label: 'Customers' },
+    { id: 'owner-expenses', label: 'Expenses' },
+    { id: 'owner-services', label: 'Services' },
+    { id: 'owner-staff', label: 'Staff' },
+    { id: 'owner-settlement', label: 'Settlement' },
+    { id: 'owner-audit', label: 'Audit Log' },
+  ];
+  const activeOwnerSection = useActiveSection(ownerSections.map(s => s.id));
+
   if (todayLoading || yearLoading) return <ViewSkeleton />;
 
   // If a branch is selected, show branch detail view
@@ -4601,7 +6015,11 @@ function OwnerView() {
 
   return (
     <div className="space-y-6">
+      {/* Section Navigation */}
+      <SectionNav sections={ownerSections} activeSection={activeOwnerSection} />
+
       {/* Revenue Cards */}
+      <div id="owner-overview" className="scroll-mt-36 space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Zap} label="Today" value={formatCurrency(animatedTodayRev)} sub={`${todayAnalytics?.totalTransactions || 0} transactions`} gradient="bg-gradient-to-r from-rose-500 to-pink-500" />
         <StatCard icon={TrendingUp} label="This Week" value={formatCurrency(animatedWeekRev)} sub={`${weekAnalytics?.totalTransactions || 0} transactions`} gradient="bg-gradient-to-r from-blue-500 to-indigo-500" />
@@ -4683,14 +6101,27 @@ function OwnerView() {
           </CardContent>
         </Card>
       </div>
+      </div>{/* end owner-overview */}
 
       {/* Store Comparison */}
+      <div id="owner-stores" className="scroll-mt-36">
       <StoreComparisonDashboard onSelectStore={(storeId) => setSelectedBranchId(storeId)} />
+      </div>
 
-      {/* Expense Tracker */}
+      {/* Customer Analytics */}
+      <div id="owner-customers" className="scroll-mt-36">
+      <OwnerCustomerAnalyticsSection />
+      </div>
+
+      {/* Expense Tracker (basic) */}
+      {/* Expense Management (comprehensive) */}
+      <div id="owner-expenses" className="scroll-mt-36 space-y-6">
       <ExpenseTracker monthAnalytics={monthAnalytics} />
+      <OwnerExpenseSection monthAnalytics={monthAnalytics} />
+      </div>
 
       {/* Staff Performance */}
+      <div id="owner-staff" className="scroll-mt-36 space-y-6">
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <h2 className="flex items-center gap-2 text-lg font-bold">
@@ -4738,21 +6169,27 @@ function OwnerView() {
       </Card>
 
       {/* ─── SERVICE CATALOG MANAGEMENT ──────────────────────── */}
+      <div id="owner-services" className="scroll-mt-36 space-y-6">
       <OwnerServiceCatalogSection />
+      </div>
 
       {/* ─── STAFF MANAGEMENT ────────────────────────────────── */}
       <OwnerStaffManagementSection />
 
       {/* ─── ADVANCE MANAGEMENT ─────────────────────────────── */}
       <OwnerAdvanceManagementSection />
+      </div>{/* end owner-staff */}
 
       {/* ─── AUDIT LOG TIMELINE ─────────────────────────────── */}
+      <div id="owner-audit" className="scroll-mt-36 space-y-6">
       <OwnerAuditLogSection />
+      </div>
 
       {/* ─── MY PROFIT CALCULATION ──────────────────────────── */}
       <OwnerProfitSection monthAnalytics={monthAnalytics} />
 
       {/* ─── SETTLEMENT ENGINE ────────────────────────────────── */}
+      <div id="owner-settlement" className="scroll-mt-36">
       <Card className="overflow-hidden shadow-sm">
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 p-5 text-white">
           <div className="flex items-center gap-2 mb-1">
@@ -4872,6 +6309,7 @@ function OwnerView() {
           )}
         </CardContent>
       </Card>
+      </div>{/* end owner-settlement */}
     </div>
   );
 }

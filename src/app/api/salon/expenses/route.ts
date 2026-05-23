@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const expenseDb = new PrismaClient()
+import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +18,7 @@ export async function GET(request: NextRequest) {
       if (to) (where.expenseDate as Record<string, unknown>).lte = to
     }
 
-    const expenses = await expenseDb.expense.findMany({
+    const expenses = await db.expense.findMany({
       where,
       include: { store: true },
       orderBy: { expenseDate: 'desc' },
@@ -47,7 +45,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const expense = await expenseDb.expense.create({
+    const expense = await db.expense.create({
       data: { storeId, category, description, amount: parseFloat(amount), expenseDate },
       include: { store: true },
     })

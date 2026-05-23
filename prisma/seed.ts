@@ -290,6 +290,10 @@ async function main() {
       `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
     );
   }
+  // Mid-month date for current month
+  const midMonthDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
+  // Recent date (a few days ago)
+  const recentDate = new Date(now.getTime() - 3 * 86400000).toISOString().split('T')[0];
 
   const expenseData = [
     // Store 0 - MG Road
@@ -302,6 +306,8 @@ async function main() {
     { si: 0, cat: 'SUPPLIES', desc: 'Shampoo & conditioner restock', amt: 5500, dateIdx: 0 },
     { si: 0, cat: 'MAINTENANCE', desc: 'AC servicing - MG Road', amt: 3500, dateIdx: 0 },
     { si: 0, cat: 'MARKETING', desc: 'Instagram & Google ads', amt: 6000, dateIdx: 0 },
+    { si: 0, cat: 'SUPPLIES', desc: 'Hair masks & treatment products', amt: 4200, customDate: midMonthDate },
+    { si: 0, cat: 'UTILITIES', desc: 'WiFi & broadband renewal', amt: 1200, customDate: recentDate },
     // Store 1 - Koramangala
     { si: 1, cat: 'RENT', desc: 'Monthly shop rent - Koramangala', amt: 50000, dateIdx: 0 },
     { si: 1, cat: 'RENT', desc: 'Monthly shop rent - Koramangala', amt: 50000, dateIdx: 1 },
@@ -310,6 +316,8 @@ async function main() {
     { si: 1, cat: 'SALARY', desc: 'Staff salary payment - Koramangala', amt: 22000, dateIdx: 1 },
     { si: 1, cat: 'SUPPLIES', desc: 'Hair color & treatment products', amt: 8000, dateIdx: 1 },
     { si: 1, cat: 'MARKETING', desc: 'Local newspaper ad', amt: 3000, dateIdx: 1 },
+    { si: 1, cat: 'MAINTENANCE', desc: 'Mirror replacement', amt: 4500, customDate: midMonthDate },
+    { si: 1, cat: 'OTHER', desc: 'Fire safety equipment check', amt: 1800, customDate: recentDate },
     // Store 2 - Whitefield
     { si: 2, cat: 'RENT', desc: 'Monthly shop rent - Whitefield', amt: 30000, dateIdx: 0 },
     { si: 2, cat: 'RENT', desc: 'Monthly shop rent - Whitefield', amt: 30000, dateIdx: 1 },
@@ -319,6 +327,8 @@ async function main() {
     { si: 2, cat: 'SALARY', desc: 'Staff salary - Whitefield', amt: 18000, dateIdx: 1 },
     { si: 2, cat: 'SUPPLIES', desc: 'Nail polish & accessories restock', amt: 3500, dateIdx: 0 },
     { si: 2, cat: 'MAINTENANCE', desc: 'Plumbing repair - Whitefield', amt: 2000, dateIdx: 1 },
+    { si: 2, cat: 'MARKETING', desc: 'Flyer printing & distribution', amt: 2500, customDate: midMonthDate },
+    { si: 2, cat: 'OTHER', desc: 'Cleaning supplies purchase', amt: 950, customDate: recentDate },
   ];
 
   const expenses = await Promise.all(
@@ -329,7 +339,7 @@ async function main() {
           category: e.cat,
           description: e.desc,
           amount: e.amt,
-          expenseDate: expenseDates[e.dateIdx],
+          expenseDate: e.customDate || expenseDates[e.dateIdx],
         },
       })
     )

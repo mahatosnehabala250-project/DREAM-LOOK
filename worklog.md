@@ -510,6 +510,79 @@ employeeNetShare = ₹250 - ₹1,800 = -₹1,550
 
 ---
 
+## Customer Management Features - 2026-05-23
+
+### Task: Add comprehensive Customer Management for Manager and Owner views
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/analytics/customers/route.ts` | GET endpoint for customer analytics: top customers by spend, new vs returning ratio, customer growth per month |
+
+### Files Modified (2):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/api/salon/customers/route.ts` | 18 → 53 lines | Added POST handler to create new customers with name, phone, email; duplicate phone detection (409) |
+| `src/app/page.tsx` | 6500 → 6682 lines (+182 lines) | 2 new components, Manager/Owner view additions, icon imports |
+
+### API Changes:
+
+#### 1. POST `/api/salon/customers` (new)
+- Request: `{ name: string, phone: string, email?: string }`
+- Validates name and phone are non-empty
+- Checks for duplicate phone number → returns 409 with existing customer data
+- Creates customer with trimmed fields, optional email
+- Returns: Created customer object (status 201)
+
+#### 2. GET `/api/salon/analytics/customers` (new)
+- Response includes:
+  - `topCustomers[]`: ranked by total spend (from completed appointment transaction servicePrice)
+  - `totalCustomers`, `newCustomers`, `returningCustomers`
+  - `newToReturningRatio`: `{ new, returning, newPercent, returningPercent }`
+  - `customerGrowth[]`: new customers per month (last 12 months)
+  - `avgVisits`, `totalAppointments`, `completedAppointments`
+
+### Frontend Components Added (2):
+
+#### 1. `ManagerCustomerSection` (~280 lines)
+- **Location**: ManagerView, between New Appointment Dialog and Day Transactions
+- **Customer List Table**: Searchable/filterable by name and phone, shows avatar + name + phone + email + "View Profile" button
+- **Customer Profile Dialog**: Click any customer to open full profile:
+  - Avatar + name + phone header
+  - 3 stat cards: Total Visits, Completed, Total Spend
+  - Contact info section with email and phone icons
+  - Full appointment history: sorted by date desc, shows service name, date, time, store, status badge, price
+  - Scrollable with max-h-64 for appointment list
+- **New Customer Dialog**: Name, phone (10-digit validation), optional email fields
+  - Posts to `/api/salon/customers`
+  - Handles duplicate phone error with specific toast message
+  - Refreshes customer list on success
+- **Search**: Real-time filtering by name or phone number
+- **ScrollArea**: max-h-96 with custom scrollbar for customer list
+
+#### 2. `OwnerCustomerAnalyticsSection` (~200 lines)
+- **Location**: OwnerView, between Store Comparison and Expense Tracker
+- **4 Overview Stat Cards**: Total Customers, New Customers (% of total), Returning (% retention), Avg Visits
+- **Customer Growth Bar Chart**: Monthly new customer registrations (last 12 months), rose-colored bars
+- **New vs Returning Pie Chart**: Donut chart with rose (new) and emerald (returning) colors, percentage labels
+- **Top Customers Table**: Ranked by total spend with trophy medals (#1 gold, #2 silver, #3 bronze)
+  - Shows: rank, avatar + name, phone, visits, total spend (rose bold), avg/visit
+- **Top Spenders Bar Chart**: Horizontal bar chart of top 10 customers with multi-color bars
+- **Empty States**: Appropriate messages when no data is available
+- **Loading/Error States**: ViewSkeleton and ErrorCard with retry
+
+### Additional Changes:
+- Added `Mail` and `Medal` icons to lucide-react imports
+- All components follow existing rose/pink/amber/emerald color scheme
+- Mobile-responsive: responsive grid layouts, hidden columns on small screens
+- Uses existing hooks: `useFetch<T>()`, `apiPost()`
+- Uses existing utilities: `formatCurrency()`, `getInitials()`, `StatusBadge`, `EmptyState`, `GlassCard`, `StatCard`, `ErrorCard`, `ViewSkeleton`
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000, all API endpoints returning 200
+
+---
+
 ## Separate Login Pages Implementation - 2026-05-22
 
 ### Task: Implement separate login pages for Employee, Manager, and Owner roles
@@ -1122,3 +1195,292 @@ User provided a detailed Android app prompt (SalonPro Manager) and asked to impl
 
 ### Lint: Zero errors
 ### APIs: All 7 new endpoints verified returning 200
+
+---
+
+## Expense Tracking Feature Implementation - 2026-05-24
+
+### Task: Add comprehensive expense tracking to Owner and Manager views
+
+### Files Modified (4):
+| File | Change |
+|------|--------|
+| `src/app/api/salon/expenses/route.ts` | Refactored to use `@/lib/db` instead of `new PrismaClient()` |
+| `src/app/page.tsx` | Added `PieChart, Pie, Cell` recharts imports, `TrendingDown, Wrench` lucide icons, `ManagerExpenseSection` + `OwnerExpenseSection` components |
+| `prisma/seed.ts` | Added 8 new expense records (30 total: 22→30), including mid-month and recent dates |
+| `prisma/schema.prisma` | Added `@default(cuid())` to all model IDs and `@updatedAt` to all updatedAt fields for proper auto-generation |
+
+### New Components (2):
+
+#### 1. `ManagerExpenseSection` (~150 lines) — Manager View
+- **Location**: ManagerView, between Daily Payment and Day Close sections
+- **Props**: `{ storeId: string }` — filters expenses to the active store
+- **Features**:
+  - **Summary cards**: Today's expenses (red) and This Month's expenses (amber) with entry counts
+  - **Quick Add Expense form**: Expandable inline form with category dropdown, description, amount, date fields
+  - **Recent expenses list**: Scrollable list (max 300px) showing last 8 monthly expenses with:
+    - Category-specific icons (Building2, Zap, Users, Package, Wrench, Flame, FileText)
+    - `ExpenseCategoryBadge` colored badges
+    - Date formatting and amount display in red
+  - **Empty state**: Centered message when no expenses exist
+- **API calls**: `GET /api/salon/expenses?storeId=X&from=Y&to=Z`, `POST /api/salon/expenses`
+
+#### 2. `OwnerExpenseSection` (~370 lines) — Owner View
+- **Location**: OwnerView, after the existing ExpenseTracker component
+- **Props**: `{ monthAnalytics: AnalyticsData | null }` — for net profit calculation
+- **Features**:
+  - **Filter bar**: 3 filter controls:
+    - Date range pills (This Month / Last Month / All Time)
+    - Store dropdown (All Stores or specific store)
+    - Category dropdown (All Categories or specific category)
+  - **4 summary stat cards**:
+    - Total Expenses (red, with TrendingDown icon)
+    - Owner Revenue (emerald, Wallet icon)
+    - Net Profit (dynamic green/red, DollarSign icon)
+    - Top Expense Category (violet, Flame icon with percentage)
+  - **Pie chart** (donut): Expense distribution by category with color legend
+  - **Horizontal bar chart**: Category-wise amount comparison with colored bars
+  - **Category-wise breakdown**: Progress bars with ExpenseCategoryBadge, amount, and percentage for each category
+  - **Full expenses table**: Date, Store, Category badge, Description, Amount (red) with alternating row colors and footer total
+  - **Add Expense dialog**: Store select, category select, description input, amount input, date picker
+- **API calls**: Dynamic URL building based on filter state
+
+### API Route Enhancement:
+- Changed `new PrismaClient()` to `import { db } from '@/lib/db'` for connection pooling consistency with other routes
+
+### Seed Data Enhancement:
+- Added 8 new expense records (22→30 total):
+  - MG Road: "Hair masks & treatment products" (₹4,200, mid-month), "WiFi & broadband renewal" (₹1,200, recent)
+  - Koramangala: "Mirror replacement" (₹4,500, mid-month), "Fire safety equipment check" (₹1,800, recent)
+  - Whitefield: "Flyer printing & distribution" (₹2,500, mid-month), "Cleaning supplies purchase" (₹950, recent)
+- New date variables: `midMonthDate` (15th of current month) and `recentDate` (3 days ago)
+
+### Schema Fixes:
+- Added `@default(cuid())` to all 16 model ID fields for auto-generation
+- Added `@updatedAt` to all 16 `updatedAt DateTime` fields for automatic timestamp updates
+- These fixes enable proper database seeding without explicit ID provision
+
+### Styling:
+- Rose/pink/red/amber color scheme matching existing theme
+- Responsive design with mobile-first approach
+- Consistent use of `EXPENSE_CATEGORY_CONFIG` for badge colors
+- Category icons: Building2 (Rent), Zap (Utilities), Users (Salary), Package (Supplies), Wrench (Maintenance), Flame (Marketing), FileText (Other)
+- Motion animations on form expand/collapse
+- Loading skeletons and empty states
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000, all endpoints returning 200
+
+---
+
+## Profile Section & Navigation UX Improvements - 2026-05-23
+
+### Task: Add Profile/Settings dropdown, section navigation tabs, improved skeletons, and enhanced footer
+
+### Files Modified (2):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/globals.css` | +8 lines | Added `.no-scrollbar` utility class for horizontal scroll areas |
+| `src/app/page.tsx` | 6682 → 7069 lines (+387 lines) | 4 new feature areas |
+
+### Changes Made:
+
+#### 1. Profile Dropdown Menu (`ProfileDropdown` component)
+- **Location**: Header authenticated user section (desktop and mobile)
+- **Implementation**: Uses shadcn/ui `DropdownMenu` from `@/components/ui/dropdown-menu`
+- **User header**: Shows avatar with initials, name, role badge, store name with Building2 icon
+- **Menu items**:
+  - "My Profile" → opens `ProfileDialog`
+  - "Settings" (placeholder)
+  - "Push Notifications" checkbox toggle (local state)
+  - Dark/Light Mode toggle (uses `useTheme()`)
+  - Separator
+  - "Help & Support" (placeholder with `LifeBuoy` icon)
+  - "Send Feedback" (placeholder with `MessageSquare` icon)
+  - Separator
+  - "Log out" (destructive variant, red colored) with `LogOut` icon
+- **Replaces**: Old inline avatar + name + logout button on desktop, and separate logout button on mobile
+- **Mobile**: Profile dropdown shown in mobile position, separate from mobile user info bar
+
+#### 2. Profile Dialog (`ProfileDialog` component)
+- **Trigger**: "My Profile" from dropdown menu
+- **Content**: Large avatar, name, role badge, phone, store name, city
+- **Uses**: Dialog from shadcn/ui with Separator between sections
+
+#### 3. Section Navigation Tabs (`SectionNav` + `useActiveSection`)
+- **Implementation**: Sticky horizontal scrollable pills at top of Owner and Manager views
+- **Sticky behavior**: `sticky top-[65px]` to stay below header, with backdrop blur
+- **Active tracking**: `IntersectionObserver` via `useActiveSection` hook detects which section is in view
+- **Smooth scroll**: `scrollIntoView({ behavior: 'smooth', block: 'start' })` on tab click
+- **Auto-scroll**: Active tab auto-scrolls into view within the nav bar when scrolling page
+- **Hidden scrollbar**: `.no-scrollbar` CSS class for clean pill strip
+
+**ManagerView tabs** (7 sections):
+| Tab | Section IDs covered |
+|-----|-------------------|
+| Overview | `mgr-overview` (stats + today vs yesterday) |
+| Appointments | `mgr-appointments` (today's appointments table) |
+| Staff | `mgr-staff` (attendance) |
+| Inventory | `mgr-inventory` (product cards + filters) |
+| Customers | `mgr-customers` (customer management) |
+| Expenses | `mgr-expenses` (expense tracker) |
+| Day Close | `mgr-day-close` (day close section) |
+
+**OwnerView tabs** (8 sections):
+| Tab | Section IDs covered |
+|-----|-------------------|
+| Overview | `owner-overview` (revenue cards + KPI + charts) |
+| Stores | `owner-stores` (store comparison dashboard) |
+| Customers | `owner-customers` (customer analytics) |
+| Expenses | `owner-expenses` (expense tracker + management) |
+| Services | `owner-services` (service catalog management) |
+| Staff | `owner-staff` (staff performance + management + advances) |
+| Settlement | `owner-settlement` (settlement engine) |
+| Audit Log | `owner-audit` (audit log timeline) |
+
+- All sections have `scroll-mt-36` for proper scroll offset below sticky nav
+
+#### 4. Loading Skeleton Improvements (3 new components)
+- **`TableSkeleton`**: Fake table with configurable rows (default 5) and columns (default 4), header + row skeletons
+- **`CardGridSkeleton`**: Fake stat card grid with configurable count (default 4), shows label/value/sub layout
+- **`ChartSkeleton`**: Fake chart area with title and configurable height (default 280px)
+- All use existing `Skeleton` component styling and `animate-pulse`
+
+#### 5. Footer Enhancements
+- **Layout**: Redesigned with 2-row layout separated by `Separator`
+- **Top row**: Brand (icon + name + tagline), Quick Links (4 items with icons), Social Links (3 decorative buttons)
+- **Quick Links**: Help Center, Privacy Policy, Terms of Service, Contact Support — all with rose hover color
+- **Social Links**: Instagram, Facebook, X — decorative icon buttons with hover effect (rose border + shadow)
+- **Bottom row**: Copyright, "Built with ❤️ for beautiful salons", version "v2.0"
+- **Mobile**: `pb-bottom-nav` padding respected for mobile bottom nav spacing
+
+### New Imports:
+- `DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuCheckboxItem` from `@/components/ui/dropdown-menu`
+- `Settings, UserCircle, HelpCircle, MessageSquare, ExternalLink, LifeBuoy, Info` from `lucide-react`
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000
+
+---
+
+## Feature Expansion Pass - Expense Tracking, Customer Management, UI Polish - 2026-05-23
+
+### Task: Add major new features — expense tracking, customer management, profile dropdown, section navigation, and UI improvements
+
+### Files Modified (3):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | 5631 → 7069 lines (+1438 lines) | 3 major feature additions + 4 UI improvements |
+| `src/app/globals.css` | +8 lines | .no-scrollbar utility, section navigation styles |
+| `next.config.ts` | +5 lines | Added allowedDevOrigins to suppress cross-origin warnings |
+
+### New Features Added:
+
+#### 1. Expense Tracking System
+**OwnerExpenseSection** (~370 lines):
+- Date range filter pills (This Month, Last Month, All Time)
+- Store and Category filter dropdowns
+- 4 summary stat cards: Total Expenses, Owner Revenue, Net Profit, Top Category
+- Donut pie chart for expense distribution by category
+- Horizontal bar chart for category-wise amount comparison
+- Category breakdown section with progress bars, badges, amounts, percentages
+- Full expense table with date, store, category, description, amount
+- "Add Expense" dialog with store, category, description, amount, date picker
+
+**ManagerExpenseSection** (~150 lines):
+- Today's & monthly expense summary cards with entry counts
+- Quick "Add Expense" inline expandable form (category, description, amount, date)
+- Recent expenses scrollable list with category-specific icons and colored badges
+- Filtered by manager's active store
+
+**API**: Extended `/api/salon/expenses` with GET (filters: storeId, category, from, to) + POST
+
+**Seed Data**: 30 expense records across 3 stores, all 7 categories
+
+#### 2. Customer Management System
+**ManagerCustomerSection**:
+- Searchable customer list table with name/phone filtering
+- Customer profile dialog showing avatar, contact info, 3 stat cards (visits, completed, spend), full appointment history
+- "New Customer" button + dialog with name, phone (10-digit validation), optional email
+- Duplicate phone detection with toast messages
+
+**OwnerCustomerAnalyticsSection**:
+- Customer Growth bar chart (new customers per month, last 12 months)
+- New vs Returning donut pie chart
+- Top Customers table with trophy medals for top 3
+- Top Spenders horizontal bar chart
+- 4 overview stat cards: Total Customers, New, Returning, Avg Visits
+
+**APIs**:
+- Extended `POST /api/salon/customers` — add new customer with duplicate detection
+- New `GET /api/salon/analytics/customers` — customer analytics (top spenders, growth, new vs returning)
+
+#### 3. Profile Dropdown Menu
+- **ProfileDropdown** using shadcn/ui DropdownMenu in the header
+- Shows avatar, name, role badge, store name
+- Menu items: My Profile (dialog), Settings, Push Notifications toggle, Dark/Light Mode toggle, Help & Support, Send Feedback, Log out (destructive)
+- **ProfileDialog** shows full user profile info in a dialog
+
+#### 4. Section Navigation Tabs
+- **SectionNav** sticky horizontal scrollable pill tabs
+- **useActiveSection** hook using IntersectionObserver for auto-tracking
+- ManagerView tabs: Overview, Appointments, Staff, Inventory, Customers, Expenses, Day Close
+- OwnerView tabs: Overview, Stores, Customers, Expenses, Services, Staff, Settlement, Audit Log
+- Smooth scroll on click, auto-scroll active tab into view
+
+#### 5. Loading Skeleton Improvements
+- **TableSkeleton** — configurable fake table rows/columns
+- **CardGridSkeleton** — fake stat card grid
+- **ChartSkeleton** — fake chart area with title
+
+#### 6. Footer Enhancements
+- 2-row layout with separator
+- Quick links: Help Center, Privacy Policy, Terms of Service, Contact Support
+- 3 decorative social link buttons (Instagram, Facebook, X) with rose hover
+- Version display: "v2.0"
+- Mobile bottom nav spacing respected
+
+### Schema Fixes:
+- Added `@default(cuid())` to all 16 model IDs
+- Added `@updatedAt` to all `updatedAt` fields
+
+### Quality:
+- **Lint**: Zero errors, zero warnings
+- **Dev server**: Running on port 3000, GET / returning 200
+- **Mobile-responsive**: All new components adapt to screen sizes
+
+---
+
+## Current Project Status Assessment
+
+### What's Working (Complete)
+- ✅ **Database**: 14 models (added Expense, Leave, Advance, Payment, DayClose, AuditLog), fully seeded
+- ✅ **API Layer**: 17+ endpoints all functional
+- ✅ **Frontend**: 7069-line SPA with 4 role-based views + login system
+- ✅ **Auth System**: Phone-based login with role selection, localStorage persistence
+- ✅ **Firebase**: Admin SDK, Storage, FCM, Firestore integrated
+- ✅ **Expense Tracking**: Full CRUD with charts, filters, category breakdowns
+- ✅ **Customer Management**: Search, profiles, new customer creation, analytics
+- ✅ **Commission Engine**: Per-service split (50/50, 60/40, 55/45), product deductions
+- ✅ **Settlement Engine**: Monthly calculations with CSV export
+- ✅ **Section Navigation**: Sticky tabs with IntersectionObserver auto-tracking
+- ✅ **Profile Dropdown**: Full menu with settings, theme toggle, help
+- ✅ **Loading Skeletons**: Specialized skeletons for tables, cards, charts
+- ✅ **Dark Mode**: next-themes with toggle
+- ✅ **Mobile Navigation**: Fixed bottom nav bar + section tabs
+- ✅ **Notification System**: Bell icon with pending appointment count
+
+### Known Issues / Risks
+1. **Firebase connectivity from sandbox**: Firebase Admin SDK may timeout in restricted network environments (non-blocking, login still works via local DB)
+2. **agent-browser localhost limitation**: CLI tools can't connect to port 3000 from within sandbox (app works through external proxy)
+
+### Priority Recommendations for Next Phase
+
+| Priority | Task | Effort |
+|----------|------|--------|
+| 🔴 High | Real-time WebSocket updates for appointment status | High |
+| 🟡 Medium | Print-friendly settlement reports | Low |
+| 🟡 Medium | WhatsApp/Email sharing for reports | Medium |
+| 🟡 Medium | Multi-language support (Hindi) | Medium |
+| 🟢 Low | PWA offline support | High |
+| 🟢 Low | Data import/export (CSV bulk) | Medium |

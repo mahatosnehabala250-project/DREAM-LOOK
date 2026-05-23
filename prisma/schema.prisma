@@ -7,284 +7,268 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── STORES ───────────────────────────────────────────────────────────────────
-model Store {
-  id       String     @id @default(cuid())
-  name     String
-  address  String
-  phone    String
-  city     String
-  isActive Boolean    @default(true)
-  employees    Employee[]
-  inventory    Inventory[]
-  appointments Appointment[]
-  transactions Transaction[]
-  attendance   Attendance[]
-  expenses     Expense[]
-  leaves       Leave[]
-  advances     Advance[]
-  payments     Payment[]
-  dayCloses    DayClose[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── EMPLOYEES ────────────────────────────────────────────────────────────────
-model Employee {
-  id           String     @id @default(cuid())
-  name         String
-  phone        String     @unique
-  role         String     @default("STYLIST") // OWNER, MANAGER, STYLIST
-  avatar       String?
-  storeId      String
-  isActive     Boolean    @default(true)
-  joiningDate  String     @default("2026-01-01")
-  skillTags    String     @default("") // comma-separated tags
-  store        Store      @relation(fields: [storeId], references: [id])
-  transactions Transaction[]
-  appointments  Appointment[]
-  attendance    Attendance[]
-  leaves        Leave[]
-  advances      Advance[]
-  payments      Payment[]
-  auditLogs     AuditLog[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── SERVICES ─────────────────────────────────────────────────────────────────
-model Service {
-  id              String   @id @default(cuid())
-  name            String
-  price           Float
-  duration        Int      // in minutes
-  category        String   // HAIRCUT, COLOR, TREATMENT, SPA, BRIDAL
-  description     String?
-  ownerPercent    Int      @default(50) // owner commission %
-  employeePercent Int      @default(50) // employee commission %
-  isActive        Boolean  @default(true)
-  appointments    Appointment[]
-  transactions    Transaction[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
-model Product {
-  id        String     @id @default(cuid())
-  name      String
-  cost      Float      // cost price per unit
-  unit      String     @default("ML") // ML, GRAM, PCS
-  category  String     // SHAMPOO, COLOR, OIL, CREAM, MASK, ACCESSORY
-  isActive  Boolean    @default(true)
-  inventory Inventory[]
-  transactionProducts TransactionProduct[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── INVENTORY (stock per store) ──────────────────────────────────────────────
-model Inventory {
-  id          String  @id @default(cuid())
-  storeId     String
-  productId   String
-  quantity    Float
-  reorderLevel Float   @default(10)
-  store       Store   @relation(fields: [storeId], references: [id])
-  product     Product @relation(fields: [productId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([storeId, productId])
-}
-
-// ─── CUSTOMERS ────────────────────────────────────────────────────────────────
-model Customer {
-  id        String       @id @default(cuid())
-  name      String
-  phone     String
-  email     String?
-  notes     String?
-  appointments Appointment[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── APPOINTMENTS ─────────────────────────────────────────────────────────────
-model Appointment {
-  id           String   @id @default(cuid())
-  customerId   String
-  storeId      String
-  employeeId   String
-  serviceId    String
-  date         String   // YYYY-MM-DD
-  time         String   // HH:MM
-  status       String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
-  notes        String?
-  customer     Customer @relation(fields: [customerId], references: [id])
-  store        Store    @relation(fields: [storeId], references: [id])
-  employee     Employee @relation(fields: [employeeId], references: [id])
-  service      Service  @relation(fields: [serviceId], references: [id])
-  transaction  Transaction?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── TRANSACTIONS (service completion records with commission) ─────────────────
-model Transaction {
-  id                   String   @id @default(cuid())
-  appointmentId        String   @unique
-  employeeId           String
-  storeId              String
-  serviceId            String
-  servicePrice         Float    // actual amount charged (may differ from service.price)
-  ownerShare           Float    // servicePrice * ownerPercent / 100
-  employeeGrossShare   Float    // servicePrice * employeePercent / 100
-  totalProductCost     Float    @default(0) // sum of all products used
-  employeeNetShare     Float    // employeeGrossShare - totalProductCost
-  paymentMethod        String   @default("CASH") // CASH, ONLINE, SPLIT
-  cashAmount           Float    @default(0)
-  onlineAmount         Float    @default(0)
-  isClosed             Boolean  @default(false) // locked after day close
-  completedAt          DateTime @default(now())
-  appointment Appointment @relation(fields: [appointmentId], references: [id])
-  employee    Employee    @relation(fields: [employeeId], references: [id])
-  store       Store       @relation(fields: [storeId], references: [id])
-  service     Service     @relation(fields: [serviceId], references: [id])
-  productsUsed TransactionProduct[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── TRANSACTION PRODUCTS (products consumed during a service) ────────────────
-model TransactionProduct {
-  id            String     @id @default(cuid())
-  transactionId String
-  productId     String
-  quantityUsed  Float
-  unitCost      Float      // cost per unit at time of transaction
-  totalCost     Float      // quantityUsed * unitCost
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  product       Product     @relation(fields: [productId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── ATTENDANCE ───────────────────────────────────────────────────────────────
-model Attendance {
-  id         String   @id @default(cuid())
-  employeeId String
-  storeId    String
-  date       String   // YYYY-MM-DD
-  checkIn    String?  // HH:MM
-  checkOut   String?  // HH:MM
-  status     String   @default("PRESENT") // PRESENT, ABSENT, HALF_DAY, LEAVE
-  markedBy   String?  // employeeId of who marked attendance
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  store      Store    @relation(fields: [storeId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([employeeId, date])
-}
-
-// ─── EXPENSES ──────────────────────────────────────────────────────────────────
-model Expense {
-  id          String   @id @default(cuid())
-  storeId     String
-  category    String   // RENT, UTILITIES, SALARY, SUPPLIES, MAINTENANCE, MARKETING, OTHER
-  description String
-  amount      Float
-  expenseDate String   // YYYY-MM-DD
-  store       Store    @relation(fields: [storeId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── LEAVES ────────────────────────────────────────────────────────────────────
-model Leave {
-  id         String    @id @default(cuid())
-  employeeId String
-  branchId   String
-  date       String    // YYYY-MM-DD
-  reason     String
-  status     String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  reviewedBy String?   // employeeId of manager/owner who reviewed
-  reviewedAt DateTime?
-  employee   Employee  @relation(fields: [employeeId], references: [id])
-  store      Store     @relation(fields: [branchId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@unique([employeeId, date])
-}
-
-// ─── ADVANCES ─────────────────────────────────────────────────────────────────
 model Advance {
   id              String   @id @default(cuid())
   employeeId      String
   branchId        String
   amount          Float
   reason          String
-  date            String   // YYYY-MM-DD
+  date            String
   recoveredAmount Float    @default(0)
   remainingAmount Float
-  givenBy         String?  // employeeId of who gave the advance
-  status          String   @default("ACTIVE") // ACTIVE, RECOVERED
-  employee        Employee @relation(fields: [employeeId], references: [id])
-  store           Store    @relation(fields: [branchId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  givenBy         String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  Store           Store    @relation(fields: [branchId], references: [id])
+  Employee        Employee @relation(fields: [employeeId], references: [id])
 }
 
-// ─── PAYMENTS (salary/payment records) ────────────────────────────────────────
-model Payment {
-  id              String   @id @default(cuid())
-  employeeId      String
-  branchId        String
-  date            String   // YYYY-MM-DD
-  earnedAmount    Float    // total commission earned
-  advanceDeducted Float    @default(0)
-  netPaid         Float    // earnedAmount - advanceDeducted
-  paymentMethod   String   @default("CASH") // CASH, ONLINE
-  paidBy          String?  // employeeId of who made the payment
-  paidAt          DateTime @default(now())
-  employee        Employee @relation(fields: [employeeId], references: [id])
-  store           Store    @relation(fields: [branchId], references: [id])
-  createdAt DateTime @default(now())
+model Appointment {
+  id          String       @id @default(cuid())
+  customerId  String
+  storeId     String
+  employeeId  String
+  serviceId   String
+  date        String
+  time        String
+  status      String       @default("PENDING")
+  notes       String?
+  createdAt   DateTime     @default(now())
   updatedAt DateTime @updatedAt
+  Service     Service      @relation(fields: [serviceId], references: [id])
+  Employee    Employee     @relation(fields: [employeeId], references: [id])
+  Store       Store        @relation(fields: [storeId], references: [id])
+  Customer    Customer     @relation(fields: [customerId], references: [id])
+  Transaction Transaction?
 }
 
-// ─── DAY CLOSE ────────────────────────────────────────────────────────────────
-model DayClose {
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  storeId    String
+  date       String
+  checkIn    String?
+  checkOut   String?
+  status     String   @default("PRESENT")
+  createdAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  markedBy   String?
+  Store      Store    @relation(fields: [storeId], references: [id])
+  Employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+}
+
+model AuditLog {
   id          String   @id @default(cuid())
-  branchId    String
-  date        String   // YYYY-MM-DD
-  totalRevenue    Float
-  totalCash       Float
-  totalOnline     Float
-  totalServices   Int
-  closedBy    String?  // employeeId of who closed the day
-  closedAt    DateTime @default(now())
-  isLocked    Boolean  @default(true)
-  store       Store    @relation(fields: [branchId], references: [id])
-  createdAt DateTime @default(now())
+  action      String
+  performedBy String
+  targetData  String?
+  oldValue    String?
+  newValue    String?
+  branchId    String?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Employee    Employee @relation(fields: [performedBy], references: [id])
+}
+
+model Customer {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String
+  email       String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt DateTime @updatedAt
+  Appointment Appointment[]
+}
+
+model DayClose {
+  id            String   @id @default(cuid())
+  branchId      String
+  date          String
+  totalRevenue  Float
+  totalCash     Float
+  totalOnline   Float
+  totalServices Int
+  closedBy      String?
+  closedAt      DateTime @default(now())
+  isLocked      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Store         Store    @relation(fields: [branchId], references: [id])
 
   @@unique([branchId, date])
 }
 
-// ─── AUDIT LOG ────────────────────────────────────────────────────────────────
-model AuditLog {
+model Employee {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String        @unique
+  role        String        @default("STYLIST")
+  avatar      String?
+  storeId     String
+  isActive    Boolean       @default(true)
+  joiningDate String        @default("2026-01-01")
+  skillTags   String        @default("")
+  createdAt   DateTime      @default(now())
+  updatedAt DateTime @updatedAt
+  Advance     Advance[]
+  Appointment Appointment[]
+  Attendance  Attendance[]
+  AuditLog    AuditLog[]
+  Store       Store         @relation(fields: [storeId], references: [id])
+  Leave       Leave[]
+  Payment     Payment[]
+  Transaction Transaction[]
+}
+
+model Expense {
   id          String   @id @default(cuid())
-  action      String   // COMMISSION_CHANGED, DAY_CLOSED, DAY_UNLOCKED, ENTRY_EDITED, ADVANCE_GIVEN, LEAVE_STATUS, STAFF_TRANSFERRED, etc.
-  performedBy String   // employeeId
-  targetData  String?  // JSON string of affected record
-  oldValue    String?  // JSON string of old value
-  newValue    String?  // JSON string of new value
-  branchId    String?
-  timestamp   DateTime @default(now())
-  employee    Employee  @relation(fields: [performedBy], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  storeId     String
+  category    String
+  description String
+  amount      Float
+  expenseDate String
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Store       Store    @relation(fields: [storeId], references: [id])
+}
+
+model Inventory {
+  id           String   @id @default(cuid())
+  storeId      String
+  productId    String
+  quantity     Float
+  reorderLevel Float    @default(10)
+  createdAt    DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Product      Product  @relation(fields: [productId], references: [id])
+  Store        Store    @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, productId])
+}
+
+model Leave {
+  id         String    @id @default(cuid())
+  employeeId String
+  branchId   String
+  date       String
+  reason     String
+  status     String    @default("PENDING")
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt DateTime @updatedAt
+  Store      Store     @relation(fields: [branchId], references: [id])
+  Employee   Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  employeeId      String
+  branchId        String
+  date            String
+  earnedAmount    Float
+  advanceDeducted Float    @default(0)
+  netPaid         Float
+  paymentMethod   String   @default("CASH")
+  paidBy          String?
+  paidAt          DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  Store           Store    @relation(fields: [branchId], references: [id])
+  Employee        Employee @relation(fields: [employeeId], references: [id])
+}
+
+model Product {
+  id                 String               @id @default(cuid())
+  name               String
+  cost               Float
+  unit               String               @default("ML")
+  category           String
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt DateTime @updatedAt
+  Inventory          Inventory[]
+  TransactionProduct TransactionProduct[]
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  name            String
+  price           Float
+  duration        Int
+  category        String
+  description     String?
+  ownerPercent    Int           @default(50)
+  employeePercent Int           @default(50)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime @updatedAt
+  Appointment     Appointment[]
+  Transaction     Transaction[]
+}
+
+model Store {
+  id          String        @id @default(cuid())
+  name        String
+  address     String
+  phone       String
+  city        String
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt DateTime @updatedAt
+  Advance     Advance[]
+  Appointment Appointment[]
+  Attendance  Attendance[]
+  DayClose    DayClose[]
+  Employee    Employee[]
+  Expense     Expense[]
+  Inventory   Inventory[]
+  Leave       Leave[]
+  Payment     Payment[]
+  Transaction Transaction[]
+}
+
+model Transaction {
+  id                 String               @id @default(cuid())
+  appointmentId      String               @unique
+  employeeId         String
+  storeId            String
+  serviceId          String
+  servicePrice       Float
+  ownerShare         Float
+  employeeGrossShare Float
+  totalProductCost   Float                @default(0)
+  employeeNetShare   Float
+  paymentMethod      String               @default("CASH")
+  cashAmount         Float                @default(0)
+  onlineAmount       Float                @default(0)
+  isClosed           Boolean              @default(false)
+  completedAt        DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt DateTime @updatedAt
+  Service            Service              @relation(fields: [serviceId], references: [id])
+  Store              Store                @relation(fields: [storeId], references: [id])
+  Employee           Employee             @relation(fields: [employeeId], references: [id])
+  Appointment        Appointment          @relation(fields: [appointmentId], references: [id])
+  TransactionProduct TransactionProduct[]
+}
+
+model TransactionProduct {
+  id            String      @id @default(cuid())
+  transactionId String
+  productId     String
+  quantityUsed  Float
+  unitCost      Float
+  totalCost     Float
+  createdAt     DateTime    @default(now())
+  updatedAt DateTime @updatedAt
+  Product       Product     @relation(fields: [productId], references: [id])
+  Transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
