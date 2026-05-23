@@ -426,8 +426,8 @@ function StatCard({ icon: Icon, label, value, sub, gradient, trend, index = 0 }:
   gradient: string; trend?: 'up' | 'down' | 'neutral'; index?: number;
 }) {
   return (
-    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }} whileHover={{ y: -2, scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-      <Card className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-200">
+    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }}>
+      <Card className="overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 cursor-pointer">
         <div className={`h-1.5 ${gradient}`} />
         <CardContent className="p-5">
           <div className="flex items-start justify-between">
@@ -1196,22 +1196,16 @@ function LandingPage({ onSelectRole, onBookAsCustomer }: {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 + i * 0.15 }}
-              whileHover={{ y: -6, scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
               onClick={() => onSelectRole(card.id)}
-              className="group relative text-left"
+              className="group relative text-left cursor-pointer focus:outline-none"
             >
-              <Card className={`backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border-white/30 dark:border-gray-700/20 shadow-lg ${card.shadow} hover:shadow-xl transition-all duration-300 overflow-hidden h-full`}>
+              <Card className={`backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border-white/30 dark:border-gray-700/20 shadow-lg ${card.shadow} hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-200 overflow-hidden h-full cursor-pointer`}>
                 {/* Gradient accent bar */}
                 <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
                 <CardContent className="p-6 flex flex-col items-center text-center gap-4">
-                  <motion.div
-                    whileHover={{ rotate: [0, -10, 10, 0] }}
-                    transition={{ duration: 0.5 }}
-                    className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow`}
-                  >
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-200`}>
                     <card.icon className="w-8 h-8 text-white" />
-                  </motion.div>
+                  </div>
                   <div className="space-y-1.5">
                     <h3 className="text-xl font-bold">{card.title}</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{card.subtitle}</p>
@@ -1435,7 +1429,7 @@ function CustomerView() {
                 const borderColors = ['border-l-rose-500', 'border-l-amber-500', 'border-l-emerald-500'];
                 const iconGradients = [STORE_GRADIENTS[0], STORE_GRADIENTS[1], STORE_GRADIENTS[2]];
                 return (
-                <motion.div key={store.id} whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <div key={store.id} className="hover:-translate-y-1 active:scale-[0.98] transition-transform duration-150">
                   <GlassCard className={`cursor-pointer transition-all hover:shadow-xl border-l-4 ${borderColors[idx] || borderColors[0]} ${
                     selectedStore === store.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                   }`} onClick={() => { setSelectedStore(store.id); setSelectedEmployeeId(''); setSelectedTimeSlot(''); }}>
@@ -1471,7 +1465,7 @@ function CustomerView() {
                       )}
                     </CardContent>
                   </GlassCard>
-                </motion.div>
+                </div>
               );
               })}
             </div>
@@ -1546,7 +1540,7 @@ function CustomerView() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredServices.map((service) => (
-                  <motion.div key={service.id} whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
+                  <div key={service.id} className="hover:-translate-y-0.5 active:scale-[0.98] transition-transform duration-150">
                     <GlassCard className={`cursor-pointer transition-all hover:shadow-xl ${
                       selectedService === service.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                     }`} onClick={() => setSelectedService(service.id)}>
@@ -1574,7 +1568,7 @@ function CustomerView() {
                         )}
                       </CardContent>
                     </GlassCard>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1651,9 +1645,9 @@ function CustomerView() {
                     {storeEmployees.map((emp) => {
                       const isSelected = selectedEmployeeId === emp.id;
                       return (
-                        <motion.button key={emp.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                        <button key={emp.id}
                           onClick={() => { setSelectedEmployeeId(isSelected ? '' : emp.id); setSelectedTimeSlot(''); }}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:scale-[1.01] active:scale-[0.99] ${
                             isSelected ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30 shadow-sm' : 'hover:border-rose-200 dark:hover:border-rose-800'
                           }`}>
                           <Avatar className="h-10 w-10">
@@ -1668,7 +1662,7 @@ function CustomerView() {
                             <p className="text-xs text-muted-foreground">{emp.role}</p>
                           </div>
                           {isSelected && <Check className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />}
-                        </motion.button>
+                        </button>
                       );
                     })}
                   </div>
@@ -2177,8 +2171,8 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                 const canComplete = apt.status === 'CONFIRMED' || apt.status === 'PENDING';
                 const isCompleted = apt.status === 'COMPLETED';
                 return (
-                  <motion.div key={apt.id} whileHover={{ scale: 1.005 }}
-                    className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${
+                  <div key={apt.id} className={`hover:scale-[1.005] transition-transform
+                    flex items-center gap-4 p-3 rounded-xl border transition-all ${
                       isCompleted ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' :
                       'bg-white dark:bg-gray-900 hover:shadow-md border-gray-200 dark:border-gray-700'
                     }`}>
@@ -2205,7 +2199,7 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                         <CheckCircle2 className="w-4 h-4" /> Done
                       </div>
                     )}
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -2766,7 +2760,7 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredInventory.map((item) => (
-                <motion.div key={item.id} whileHover={{ scale: 1.02 }}>
+                <div key={item.id} className="hover:scale-[1.01] transition-transform duration-150">
                   <Card className={`overflow-hidden border transition-shadow hover:shadow-md ${item.isLow ? 'border-amber-200 dark:border-amber-800' : ''}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
@@ -2792,7 +2786,7 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
                       )}
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}
@@ -3096,7 +3090,7 @@ function KPIDashboard({ monthAnalytics }: { monthAnalytics: AnalyticsData | null
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {kpis.map((kpi) => (
-        <motion.div key={kpi.label} whileHover={{ y: -2, scale: 1.01 }} transition={{ type: 'spring', stiffness: 300 }}>
+        <div key={kpi.label} className="hover:-translate-y-0.5 transition-transform duration-150">
           <Card className={`shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${kpi.borderColor}`}>
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
@@ -3111,7 +3105,7 @@ function KPIDashboard({ monthAnalytics }: { monthAnalytics: AnalyticsData | null
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ))}
     </div>
   );
@@ -3209,7 +3203,7 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
           {/* Expense Overview Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {overviewCards.map((card) => (
-              <motion.div key={card.label} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 300 }}>
+              <div key={card.label} className="hover:-translate-y-0.5 transition-transform duration-150">
                 <div className="rounded-xl border p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-2">
                     <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
@@ -3222,7 +3216,7 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{card.label}</p>
                   <p className={`text-base font-bold mt-0.5 ${card.color}`}>{formatCurrency(card.value)}</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
 
@@ -3410,8 +3404,8 @@ function StoreComparisonDashboard() {
             const pct = maxRevenue > 0 ? (rev / maxRevenue) * 100 : 0;
             const isTop = s.store?.id === topStoreId && rev > 0;
             return (
-              <motion.div key={s.store?.id || i} whileHover={{ y: -2, scale: 1.01 }}
-                className={`relative p-4 rounded-xl border transition-all ${isTop ? 'border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/20' : ''}`}>
+              <div key={s.store?.id || i}
+                className={`relative p-4 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-md ${isTop ? 'border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/20' : ''}`}>
                 {isTop && (
                   <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
                     <Trophy className="w-3 h-3 text-white" />
@@ -3444,7 +3438,7 @@ function StoreComparisonDashboard() {
                     <span>{pct.toFixed(0)}% of total</span>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
