@@ -1484,3 +1484,65 @@ User provided a detailed Android app prompt (SalonPro Manager) and asked to impl
 | 🟡 Medium | Multi-language support (Hindi) | Medium |
 | 🟢 Low | PWA offline support | High |
 | 🟢 Low | Data import/export (CSV bulk) | Medium |
+
+---
+
+## Firebase Vercel Environment Setup - 2026-05-23
+
+### Task: Add Firebase environment variables to Vercel deployment
+
+### User Request
+"vercel mein push ho geye he, tujhe vercel pe agar environment mein add karna he kuch fire base ka dd kar"
+
+### Changes Made:
+
+#### 1. Modified `src/lib/firebase-admin.ts` — Vercel-compatible credential loading
+- **Before**: Hardcoded path to `firebase-service-account.json` file only
+- **After**: Dual credential support:
+  - **Priority 1**: `FIREBASE_SERVICE_ACCOUNT_KEY` env var (parsed as JSON) — for Vercel/production
+  - **Priority 2**: `firebase-service-account.json` file — for local development
+  - **Fallback**: `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` env var for dynamic storage bucket
+  - **Error**: Clear message when neither source is available
+
+#### 2. Vercel Environment Variables Added (7 total)
+All set as encrypted, targeting production + preview + development:
+
+| # | Key | Value | Purpose |
+|---|-----|-------|---------|
+| 1 | `FIREBASE_SERVICE_ACCOUNT_KEY` | (full service account JSON) | Firebase Admin SDK server-side auth |
+| 2 | `NEXT_PUBLIC_FIREBASE_API_KEY` | `AIzaSyDlcwI3zm1XoveaThObLtDTbTekKxkqbTE` | Firebase Client SDK |
+| 3 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `dream-look-e409a.firebaseapp.com` | Firebase Auth domain |
+| 4 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `dream-look-e409a` | Firebase project identifier |
+| 5 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | `dream-look-e409a.firebasestorage.app` | Firebase Storage bucket |
+| 6 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `37086154732` | FCM sender ID |
+| 7 | `NEXT_PUBLIC_FIREBASE_APP_ID` | `1:37086154732:web:5bfa3fa8f809e7fb473ac9` | Firebase Web App ID |
+
+#### 3. GitHub Push
+- Commit: `fix: firebase-admin.ts - support FIREBASE_SERVICE_ACCOUNT_KEY env var for Vercel`
+- Pushed to: `https://github.com/mahatosnehabala250-project/DREAM-LOOK` (main branch)
+- Vercel auto-deployment triggered from GitHub push
+
+#### 4. Vercel Project Info
+- Project ID: `prj_BNjdxAE7qQD4PCp1IMJrbDvIh3F0`
+- Project Name: `dream-look`
+- Framework: Next.js (auto-detected)
+- GitHub Link: `mahatosnehabala250-project/DREAM-LOOK` → `main` branch
+- Deploy mode: Auto-deploy on push
+
+### Verification:
+- ✅ Lint: Zero errors
+- ✅ All 7 env vars confirmed on Vercel (encrypted)
+- ✅ Code pushed to GitHub
+- ✅ Vercel auto-deploy triggered
+
+### ⚠️ Known Issue — SQLite on Vercel:
+The project uses SQLite (`DATABASE_URL=file:./db/custom.db`) which does NOT work on Vercel's serverless environment (no persistent filesystem). For production, the database layer needs to be migrated to:
+- Firebase Firestore (already configured)
+- Or a cloud database (Turso, PlanetScale, etc.)
+
+This is a separate concern from the Firebase env setup requested by the user.
+
+### Cron Job Created:
+- Job ID: 165589
+- Schedule: Every 15 minutes
+- Type: webDevReview (QA + development continuation)
