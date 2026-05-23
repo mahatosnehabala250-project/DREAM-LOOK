@@ -552,7 +552,7 @@ export default function Home() {
         if ('Notification' in window && Notification.permission === 'granted') {
           const { getMessaging, getToken } = await import('firebase/messaging');
           const { app } = await import('@/lib/firebase-client');
-          fcmToken = await getToken(getMessaging(app), { vapidKey: 'BG2..............YOUR_VAPID_KEY' });
+          fcmToken = await getToken(getMessaging(app));
         }
       } catch (fcmErr) {
         console.warn('FCM token not available:', fcmErr);
