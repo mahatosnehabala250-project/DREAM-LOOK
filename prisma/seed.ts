@@ -55,18 +55,18 @@ async function main() {
 
   // ─── PRODUCTS ───────────────────────────────────────────────────────────────
   const products = await Promise.all([
-    db.product.create({ data: { name: 'Shampoo (L\'Oreal)', cost: 15, unit: 'ML', category: 'SHAMPOO' } }),
-    db.product.create({ data: { name: 'Hair Color (Matrix)', cost: 25, unit: 'ML', category: 'COLOR' } }),
-    db.product.create({ data: { name: 'Conditioner', cost: 10, unit: 'ML', category: 'SHAMPOO' } }),
-    db.product.create({ data: { name: 'Hair Oil (Coconut)', cost: 5, unit: 'ML', category: 'OIL' } }),
-    db.product.create({ data: { name: 'Hair Mask', cost: 30, unit: 'GRAM', category: 'MASK' } }),
-    db.product.create({ data: { name: 'Hair Gel', cost: 8, unit: 'ML', category: 'CREAM' } }),
-    db.product.create({ data: { name: 'Keratin Cream', cost: 50, unit: 'GRAM', category: 'CREAM' } }),
-    db.product.create({ data: { name: 'Bleach Powder', cost: 20, unit: 'GRAM', category: 'COLOR' } }),
-    db.product.create({ data: { name: 'Developer', cost: 12, unit: 'ML', category: 'COLOR' } }),
-    db.product.create({ data: { name: 'Face Cream', cost: 15, unit: 'GRAM', category: 'CREAM' } }),
-    db.product.create({ data: { name: 'Massage Oil', cost: 8, unit: 'ML', category: 'OIL' } }),
-    db.product.create({ data: { name: 'Nail Polish Remover', cost: 6, unit: 'ML', category: 'ACCESSORY' } }),
+    db.product.create({ data: { name: 'Shampoo (L\'Oreal)', cost: 0.20, unit: 'ML', category: 'SHAMPOO' } }),
+    db.product.create({ data: { name: 'Hair Color (Matrix)', cost: 1.50, unit: 'ML', category: 'COLOR' } }),
+    db.product.create({ data: { name: 'Conditioner', cost: 0.18, unit: 'ML', category: 'SHAMPOO' } }),
+    db.product.create({ data: { name: 'Hair Oil (Coconut)', cost: 0.20, unit: 'ML', category: 'OIL' } }),
+    db.product.create({ data: { name: 'Hair Mask', cost: 0.50, unit: 'GRAM', category: 'MASK' } }),
+    db.product.create({ data: { name: 'Hair Gel', cost: 1.20, unit: 'ML', category: 'CREAM' } }),
+    db.product.create({ data: { name: 'Keratin Cream', cost: 2.00, unit: 'GRAM', category: 'CREAM' } }),
+    db.product.create({ data: { name: 'Bleach Powder', cost: 0.30, unit: 'GRAM', category: 'COLOR' } }),
+    db.product.create({ data: { name: 'Developer', cost: 0.15, unit: 'ML', category: 'COLOR' } }),
+    db.product.create({ data: { name: 'Face Cream', cost: 2.50, unit: 'GRAM', category: 'CREAM' } }),
+    db.product.create({ data: { name: 'Massage Oil', cost: 0.20, unit: 'ML', category: 'OIL' } }),
+    db.product.create({ data: { name: 'Nail Polish Remover', cost: 0.60, unit: 'ML', category: 'ACCESSORY' } }),
   ]);
 
   console.log(`✅ Created ${products.length} products`);
@@ -178,20 +178,20 @@ async function main() {
   // ─── TRANSACTIONS (for completed appointments) ──────────────────────────────
   const completedAppts = appointments.filter((a) => a.status === 'COMPLETED');
 
-  // Product usage patterns for different service types
+  // Product usage per service (realistic salon quantities)
   const serviceProductMap: Record<number, { pids: number[]; qty: number[] }[]> = {
-    0: [{ pids: [0, 2], qty: [30, 20] }], // Haircut Men: Shampoo 30ml, Conditioner 20ml
-    1: [{ pids: [0, 2], qty: [40, 30] }], // Haircut Women: Shampoo 40ml, Conditioner 30ml
-    2: [{ pids: [1, 7, 8], qty: [60, 20, 60] }], // Hair Color: Color 60ml, Bleach 20g, Developer 60ml
-    3: [{ pids: [1, 7, 8], qty: [80, 30, 80] }], // Highlights
-    4: [{ pids: [4, 2], qty: [50, 30] }], // Hair Spa: Mask 50g, Conditioner 30ml
-    5: [{ pids: [6, 0, 2], qty: [100, 40, 40] }], // Keratin
-    6: [{ pids: [9], qty: [30] }], // Facial: Face cream 30g
-    7: [{ pids: [9, 0], qty: [50, 30] }], // Bridal
-    8: [{ pids: [5], qty: [10] }], // Beard Trim: Gel 10ml
-    9: [{ pids: [10], qty: [20] }], // Head Massage: Oil 20ml
-    10: [{ pids: [6, 0], qty: [120, 50] }], // Hair Straightening
-    11: [{ pids: [11], qty: [15] }], // Manicure & Pedicure
+    0: [{ pids: [0, 2], qty: [20, 10] }], // Haircut Men: Shampoo 20ml, Conditioner 10ml
+    1: [{ pids: [0, 2], qty: [30, 20] }], // Haircut Women: Shampoo 30ml, Conditioner 20ml
+    2: [{ pids: [1, 7, 8], qty: [60, 15, 60] }], // Hair Color: Color 60ml, Bleach 15g, Developer 60ml
+    3: [{ pids: [1, 7, 8], qty: [80, 25, 80] }], // Highlights: Color 80ml, Bleach 25g, Developer 80ml
+    4: [{ pids: [4, 2], qty: [50, 20] }], // Hair Spa: Mask 50g, Conditioner 20ml
+    5: [{ pids: [6, 0, 2], qty: [100, 30, 25] }], // Keratin: Keratin 100g, Shampoo 30ml, Conditioner 25ml
+    6: [{ pids: [9], qty: [15] }], // Facial: Face cream 15g
+    7: [{ pids: [9, 0], qty: [25, 20] }], // Bridal: Face cream 25g, Shampoo 20ml
+    8: [{ pids: [5], qty: [5] }], // Beard Trim: Gel 5ml
+    9: [{ pids: [10], qty: [15] }], // Head Massage: Oil 15ml
+    10: [{ pids: [6, 0], qty: [80, 40] }], // Hair Straightening: Keratin 80g, Shampoo 40ml
+    11: [{ pids: [11], qty: [10] }], // Manicure & Pedicure: Remover 10ml
   };
 
   let transactionCount = 0;
