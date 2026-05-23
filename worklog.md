@@ -867,3 +867,258 @@ User shared: `projectId: dream-look-e409a`, `name: dream look`, `lifecycleState:
 
 ### Lint: Zero errors
 ### Dev server: Running on port 3000
+
+---
+
+## Frontend Major Feature Expansion - 2026-05-23
+
+### Task: Add comprehensive new features to all 3 role views (Employee, Manager, Owner)
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | 4255 → 5631 lines (+1376 lines) | New types, role accent colors, 14 new UI components |
+
+### New Types Added (5):
+| Type | Fields |
+|------|--------|
+| `Leave` | id, employeeId, branchId, date, reason, status, reviewedBy, reviewedAt, employee, store, reviewer |
+| `Advance` | id, employeeId, branchId, amount, reason, date, recoveredAmount, remainingAmount, givenBy, status, employee, store, giver |
+| `Payment` | id, employeeId, branchId, date, earnedAmount, advanceDeducted, netPaid, paymentMethod, paidBy, paidAt, employee, store |
+| `DayClose` | id, branchId, date, totalRevenue, totalCash, totalOnline, totalServices, closedBy, closedAt, isLocked, store |
+| `AuditLog` | id, action, performedBy, targetData, oldValue, newValue, branchId, timestamp, employee |
+
+### Updated Types:
+| Type | New Fields |
+|------|-----------|
+| `Service` | `ownerPercent: number`, `employeePercent: number` |
+| `Transaction` | `paymentMethod: string`, `cashAmount: number`, `onlineAmount: number`, `isClosed: boolean`, `service.price?`, `service.ownerPercent?`, `service.employeePercent?` |
+
+### New Imports:
+- `Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote, CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus` from lucide-react
+- `Tabs, TabsContent, TabsList, TabsTrigger` from shadcn/ui
+- `Switch` from shadcn/ui
+- `Slider` from shadcn/ui
+
+### Role-Specific Accent Colors System:
+- **Owner**: Gold (#FFB300) accents — gradient, solid, light, ring, text, bg variants
+- **Manager**: Blue (#1976D2) accents — gradient, solid, light, ring, text, bg variants
+- **Employee**: Green (#388E3C) accents — gradient, solid, light, ring, text, bg variants
+- `ROLE_ACCENT` constant map with `getRoleAccent()` and `getAccentForRole()` helpers
+
+### New Helper Functions:
+- `apiDelete(url)` — DELETE request wrapper with error handling
+- `getRoleAccent(role?)` — Returns accent config from role string (STYLIST/MANAGER/OWNER)
+- `getAccentForRole(role)` — Returns accent config from lowercase role key
+
+### New StatusBadge statuses added:
+- APPROVED, REJECTED, ACTIVE, RECOVERING, RECOVERED
+
+---
+
+### Employee View — 4 New Sections:
+
+#### 1. `MyEntriesHistory` Component
+- Fetches 30-day transaction history for the authenticated employee
+- **Payment Method Badges**: Cash (green, Banknote icon), Online (blue, CreditCard icon), Split (amber, Receipt icon)
+- Shows payment method, timestamp, store name, net earnings
+- Split payments show Cash/Online breakdown
+
+#### 2. `MyAdvanceSection` Component
+- Fetches advance data for the authenticated employee
+- **Outstanding balance** card (amber) + **Recovered** card (blue)
+- Scrollable list of all advances with status badges and remaining amounts
+
+#### 3. `LeaveManagementSection` Component
+- **Apply for Leave form**: Date picker + reason input + submit button
+- Date defaults to today, minimum date is today
+- Posts to `POST /api/salon/leaves`
+- **Leave history**: Scrollable list sorted by date, showing date/reason/status
+
+#### 4. `CommissionPreviewSection` Component
+- Fetches all services from API
+- Shows per-service commission split (Owner% / Employee%)
+- Calculates and displays "You earn ₹X" for each active service
+- Grid layout with violet accent icons
+
+---
+
+### Manager View — 4 New Sections:
+
+#### 1. `ManagerDayTransactionsSection` — Payment Method Recording
+- Lists all today's transactions for the store
+- **Payment Method Dialog**: Cash/Online/Split toggle with styled buttons
+- Split mode shows Cash Amount + Online Amount inputs with real-time validation
+- Cash/Online summary badges at the top
+- Patches to `PATCH /api/salon/transactions/[id]`
+
+#### 2. `ManagerLeaveRequestsSection` — Leave Review
+- Fetches pending leaves for the store branch
+- Shows employee avatar, name, date, reason
+- **Approve** (green) and **Reject** (red) buttons
+- Patches to `PATCH /api/salon/leaves`
+
+#### 3. `ManagerDailyPaymentSection` — Per-Employee Payment
+- Computes per-stylist summary: earned amount, advance deduction, net payable
+- Already-paid indicator (green badge)
+- **Mark Paid** button (disabled if no earnings or already paid)
+- Posts to `POST /api/salon/payments`
+
+#### 4. `ManagerDayCloseSection` — Day Close
+- Shows Cash/Online/Revenue summary for the day
+- **Close Day 🔒** button with gradient amber/orange styling
+- **Confirmation dialog**: Shows summary before closing
+- **Closed state**: Green border, lock icon, "Day has been closed" message
+- Posts to `POST /api/salon/day-close`
+
+---
+
+### Owner View — 5 New Sections:
+
+#### 1. `OwnerServiceCatalogSection` — Service Catalog Management
+- Lists all services with current commission split
+- **Add Service form**: Name, price, category, duration, commission slider (Owner%/Employee%)
+- **Commission Slider**: Live per-service commission adjustment (10%-90% range, 5% steps)
+- **Deactivate toggle**: Switch to activate/deactivate services
+- Posts to `POST /api/salon/services`, patches to `PATCH /api/salon/services/[id]`
+
+#### 2. `OwnerStaffManagementSection` — Staff Management
+- Lists all employees with role badges and store names
+- **Add Stylist** and **Add Manager** buttons (separate forms)
+- Add form: Name, phone, branch selection
+- **Transfer dialog**: Move employee to different branch
+- **Activate/Deactivate** toggle per employee
+- Posts to `POST /api/salon/staff`, patches to `PATCH /api/salon/staff`
+
+#### 3. `OwnerAdvanceManagementSection` — Advance Management
+- **Give Advance form**: Employee select, amount, branch, reason
+- **Outstanding badge**: Total outstanding advances
+- Scrollable list of all advances with recovery status
+- Posts to `POST /api/salon/advances`
+
+#### 4. `OwnerAuditLogSection` — Audit Log Timeline
+- Color-coded entries based on action type:
+  - Red border: Edits/Updates/Modifications
+  - Amber border: Commission/Percentage changes
+  - Blue border: Day unlock/close
+  - Green border: Advances/Payments
+  - Purple border: Leaves
+  - Gray border: Deactivations/Deletes
+- **Branch filter**: Select dropdown to filter by store
+- **Action filter**: Commission, Advance, Payment, Leave, Day Close, Create, Deactivate
+- Shows old/new values with truncation for long strings
+- Fetches from `GET /api/salon/audit-logs`
+
+#### 5. `OwnerProfitSection` — Profit Calculation
+- **Gold gradient header** with Crown icon
+- Formula: Revenue − Employee Earnings − Expenses − Advances Given
+- 5-column grid: Revenue, Employee Payout, Expenses, Advances Given, My Profit
+- My Profit card changes color (green/red) based on positive/negative
+
+---
+
+### API Endpoints Used (New):
+| Endpoint | Method | Component |
+|----------|--------|-----------|
+| `/api/salon/leaves` | GET | MyEntriesHistory, LeaveManagement, ManagerLeaveRequests |
+| `/api/salon/leaves` | POST | LeaveManagementSection |
+| `/api/salon/leaves` | PATCH | ManagerLeaveRequestsSection |
+| `/api/salon/advances` | GET | MyAdvanceSection, OwnerAdvanceManagementSection |
+| `/api/salon/advances` | POST | OwnerAdvanceManagementSection |
+| `/api/salon/payments` | GET | ManagerDailyPaymentSection |
+| `/api/salon/payments` | POST | ManagerDailyPaymentSection |
+| `/api/salon/day-close` | GET | ManagerDayCloseSection |
+| `/api/salon/day-close` | POST | ManagerDayCloseSection |
+| `/api/salon/audit-logs` | GET | OwnerAuditLogSection |
+| `/api/salon/services` | POST | OwnerServiceCatalogSection |
+| `/api/salon/services/[id]` | PATCH | OwnerServiceCatalogSection |
+| `/api/salon/staff` | POST | OwnerStaffManagementSection |
+| `/api/salon/staff` | PATCH | OwnerStaffManagementSection |
+| `/api/salon/transactions/[id]` | PATCH | ManagerDayTransactionsSection |
+
+### Lint: Zero errors, zero warnings
+### Dev server: Running on port 3000
+
+---
+
+## Major Feature Implementation - SalonPro Manager Features - 2026-05-23
+
+### Task: Implement comprehensive salon management features from SalonPro Manager prompt
+
+### User Request
+User provided a detailed Android app prompt (SalonPro Manager) and asked to implement equivalent features in the web app.
+
+### Files Created (7 new API routes):
+| File | Methods | Description |
+|------|---------|-------------|
+| `src/app/api/salon/leaves/route.ts` | GET/POST/PATCH | Leave management (apply, approve, reject) |
+| `src/app/api/salon/advances/route.ts` | GET/POST/PATCH | Advance management (give, track recovery) |
+| `src/app/api/salon/payments/route.ts` | GET/POST | Payment recording (daily salary payments) |
+| `src/app/api/salon/day-close/route.ts` | GET/POST/DELETE | Day close (lock daily data, unlock for owner) |
+| `src/app/api/salon/audit-logs/route.ts` | GET | Audit trail (all system changes logged) |
+| `src/app/api/salon/services/route.ts` | GET/POST/PATCH | Service management (add, edit commission %, deactivate) |
+| `src/app/api/salon/staff/route.ts` | POST/PATCH | Staff management (add, transfer, deactivate) |
+
+### Files Modified:
+| File | Change |
+|------|--------|
+| `prisma/schema.prisma` | 5 new models (Leave, Advance, Payment, DayClose, AuditLog) + updated Service and Transaction fields |
+| `src/app/page.tsx` | 4255 → 5631 lines (+1376 lines): New features for all 3 roles |
+
+### Database Changes:
+| Model | Fields | Purpose |
+|-------|--------|---------|
+| **Service** | +ownerPercent, +employeePercent | Per-service commission split |
+| **Transaction** | +paymentMethod, +cashAmount, +onlineAmount, +isClosed | Cash/Online/Split tracking + day lock |
+| **Leave** | NEW | Employee leave requests with approval workflow |
+| **Advance** | NEW | Employee advance tracking with recovery |
+| **Payment** | NEW | Daily payment records |
+| **DayClose** | NEW | Day lock mechanism with cash/online totals |
+| **AuditLog** | NEW | System-wide change audit trail |
+
+### Seed Data Added:
+- 12 services updated with per-service commission percentages
+- 13 transactions updated with payment methods (Cash/Online/Split)
+- 3 leave requests (1 approved, 2 pending)
+- 2 advances (Anitha ₹2000, Suresh ₹1000)
+- 2 payment records
+- 6 day close records (2 per branch for May 21-22)
+- 4 audit log entries
+
+### Commission Percentages (per-service):
+| Service | Owner% | Employee% |
+|---------|--------|-----------|
+| Haircut (Men/Women), Beard Trim, Hair Spa, Head Massage | 50% | 50% |
+| Hair Color, Highlights, Facial, Bridal Makeup | 60% | 40% |
+| Hair Straightening, Keratin Treatment, Manicure & Pedicure | 55% | 45% |
+
+### Frontend Features Added:
+
+#### Employee View (4 new sections):
+- **My Entries History**: Transaction list with Cash/Online/Split payment badges
+- **My Advance**: Balance cards, advance history with status
+- **Leave Management**: Date picker + reason form, status tracking
+- **Commission Preview**: Per-service split display
+
+#### Manager View (4 new sections):
+- **Payment Method Recording**: Cash/Online/Split toggle on service recording
+- **Leave Requests**: Pending list with Approve/Reject buttons
+- **Daily Payment**: Per-employee earned/advance/net with Mark Paid
+- **Day Close**: Summary + confirmation dialog to lock daily data
+
+#### Owner View (5 new sections):
+- **Service Catalog**: Add/edit services, commission slider, deactivate toggle
+- **Staff Management**: Add/transfer/deactivate employees and managers
+- **Advance Management**: Give advance form, outstanding list
+- **Audit Log Timeline**: Color-coded entries with filters
+- **My Profit**: Revenue - Expenses - Employee Earnings - Advances
+
+#### UI Enhancement:
+- **Role-Specific Accent Colors**: Owner=Gold, Manager=Blue, Employee=Green
+- New icons imported: Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, etc.
+
+### Known Issues:
+- Dev server stability: 5600-line single file causes occasional Turbopack OOM crashes. Recommend splitting into modules for production.
+
+### Lint: Zero errors
+### APIs: All 7 new endpoints verified returning 200

@@ -14,6 +14,8 @@ import {
   Plus, ArrowUp, ArrowDown, Calculator, Star,
   Bell, Trophy, Activity, History, ChevronDown, Eye, EyeOff,
   Receipt, Percent, Wallet, CircleDot, Flame, Store, XCircle,
+  Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote,
+  CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ResponsiveContainer,
@@ -59,6 +64,7 @@ interface Store {
 interface Service {
   id: string; name: string; price: number; duration: number;
   category: string; description: string | null; isActive: boolean;
+  ownerPercent: number; employeePercent: number;
 }
 interface Product {
   id: string; name: string; cost: number; unit: string;
@@ -88,8 +94,12 @@ interface Transaction {
   employeeGrossShare: number; totalProductCost: number; employeeNetShare: number;
   completedAt: string;
   employee: { id: string; name: string; role: string };
-  service: { id: string; name: string };
+  service: { id: string; name: string; price?: number; ownerPercent?: number; employeePercent?: number };
   store: { id: string; name: string };
+  paymentMethod: string;
+  cashAmount: number;
+  onlineAmount: number;
+  isClosed: boolean;
   productsUsed: Array<{
     id: string; productId: string; quantityUsed: number;
     unitCost: number; totalCost: number;
@@ -123,6 +133,45 @@ interface Expense {
   amount: number; expenseDate: string;
   store: { id: string; name: string; address: string; phone: string; city: string; isActive: boolean };
 }
+interface Leave {
+  id: string; employeeId: string; branchId: string; date: string; reason: string;
+  status: string; reviewedBy: string | null; reviewedAt: string | null;
+  employee: { id: string; name: string; role: string; avatar: string | null };
+  store: { id: string; name: string };
+  reviewer?: { id: string; name: string } | null;
+}
+
+interface Advance {
+  id: string; employeeId: string; branchId: string; amount: number; reason: string;
+  date: string; recoveredAmount: number; remainingAmount: number; givenBy: string | null;
+  status: string;
+  employee: { id: string; name: string; role: string; avatar: string | null };
+  store: { id: string; name: string };
+  giver?: { id: string; name: string } | null;
+}
+
+interface Payment {
+  id: string; employeeId: string; branchId: string; date: string;
+  earnedAmount: number; advanceDeducted: number; netPaid: number;
+  paymentMethod: string; paidBy: string | null; paidAt: string;
+  employee: { id: string; name: string; role: string; avatar: string | null };
+  store: { id: string; name: string };
+}
+
+interface DayClose {
+  id: string; branchId: string; date: string; totalRevenue: number;
+  totalCash: number; totalOnline: number; totalServices: number;
+  closedBy: string | null; closedAt: string; isLocked: boolean;
+  store: { id: string; name: string };
+}
+
+interface AuditLog {
+  id: string; action: string; performedBy: string; targetData: string | null;
+  oldValue: string | null; newValue: string | null; branchId: string | null;
+  timestamp: string;
+  employee: { id: string; name: string; role: string; avatar: string | null };
+}
+
 interface SettlementData {
   employee: { id: string; name: string; role: string; store: { id: string; name: string } | null };
   period: { from: string; to: string };
@@ -373,6 +422,11 @@ function StatusBadge({ status }: { status: string }) {
     ABSENT: { label: 'Absent', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
     HALF_DAY: { label: 'Half Day', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
     LEAVE: { label: 'On Leave', className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/40 dark:text-gray-400' },
+    APPROVED: { label: 'Approved', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    REJECTED: { label: 'Rejected', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+    ACTIVE: { label: 'Active', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    RECOVERING: { label: 'Recovering', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+    RECOVERED: { label: 'Recovered', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
   };
   const c = config[status] || { label: status, className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/40 dark:text-gray-300' };
   return <span className={`inline-flex items-center rounded-full border border-l-2 border-l-current px-2.5 py-0.5 text-xs font-medium ${c.className}`}>{c.label}</span>;
@@ -480,6 +534,45 @@ function LiveClock() {
   );
 }
 
+// ─── ROLE ACCENT COLORS ────────────────────────────────────────
+const ROLE_ACCENT: Record<string, { gradient: string; solid: string; light: string; ring: string; text: string; bg: string }> = {
+  owner: {
+    gradient: 'bg-gradient-to-r from-amber-500 to-yellow-500',
+    solid: 'bg-amber-500 hover:bg-amber-600',
+    light: 'bg-amber-100 dark:bg-amber-900/30',
+    ring: 'ring-amber-200 dark:ring-amber-800',
+    text: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-950/20',
+  },
+  manager: {
+    gradient: 'bg-gradient-to-r from-blue-500 to-indigo-500',
+    solid: 'bg-blue-500 hover:bg-blue-600',
+    light: 'bg-blue-100 dark:bg-blue-900/30',
+    ring: 'ring-blue-200 dark:ring-blue-800',
+    text: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-950/20',
+  },
+  employee: {
+    gradient: 'bg-gradient-to-r from-emerald-500 to-green-500',
+    solid: 'bg-emerald-500 hover:bg-emerald-600',
+    light: 'bg-emerald-100 dark:bg-emerald-900/30',
+    ring: 'ring-emerald-200 dark:ring-emerald-800',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/20',
+  },
+};
+
+function getRoleAccent(role?: string | null) {
+  if (!role) return ROLE_ACCENT.employee;
+  if (role === 'OWNER') return ROLE_ACCENT.owner;
+  if (role === 'MANAGER') return ROLE_ACCENT.manager;
+  return ROLE_ACCENT.employee;
+}
+
+function getAccentForRole(role: string) {
+  return ROLE_ACCENT[role] || ROLE_ACCENT.employee;
+}
+
 // ─── POST HELPER ────────────────────────────────────────────────
 async function apiPost(url: string, body: unknown) {
   const res = await fetch(url, {
@@ -500,6 +593,15 @@ async function apiPatch(url: string, body: unknown) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function apiDelete(url: string) {
+  const res = await fetch(url, { method: 'DELETE' });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `HTTP ${res.status}`);
@@ -2263,7 +2365,274 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* ─── MY ENTRIES HISTORY ──────────────────────────────── */}
+      {authUser && (
+        <MyEntriesHistory employeeId={authUser.id} branchId={authUser.storeId} />
+      )}
+
+      {/* ─── MY ADVANCE ─────────────────────────────────────── */}
+      {authUser && (
+        <MyAdvanceSection employeeId={authUser.id} branchId={authUser.storeId} />
+      )}
+
+      {/* ─── LEAVE MANAGEMENT ───────────────────────────────── */}
+      {authUser && (
+        <LeaveManagementSection employeeId={authUser.id} branchId={authUser.storeId} authName={authUser.name} />
+      )}
+
+      {/* ─── COMMISSION PREVIEW ─────────────────────────────── */}
+      {authUser && (
+        <CommissionPreviewSection employeeId={authUser.id} branchId={authUser.storeId} />
+      )}
     </div>
+  );
+}
+
+// ─── MY ENTRIES HISTORY (Employee) ────────────────────────────
+function MyEntriesHistory({ employeeId, branchId }: { employeeId: string; branchId: string }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  const { data: entries } = useFetch<Transaction[]>(
+    `/api/salon/transactions?employeeId=${employeeId}&from=${monthAgo}&to=${today}`
+  );
+
+  function PaymentMethodBadge({ method }: { method: string }) {
+    if (method === 'CASH') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold"><Banknote className="w-3 h-3" /> Cash</span>;
+    if (method === 'ONLINE') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold"><CreditCard className="w-3 h-3" /> Online</span>;
+    if (method === 'SPLIT') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-semibold"><Receipt className="w-3 h-3" /> Split</span>;
+    return <Badge variant="outline" className="text-[10px]">{method || 'N/A'}</Badge>;
+  }
+
+  const sorted = useMemo(() => (entries || []).sort((a, b) => {
+    const ta = new Date(b.completedAt || '').getTime();
+    const tb = new Date(a.completedAt || '').getTime();
+    return ta - tb;
+  }), [entries]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-emerald-500" />
+            <CardTitle className="text-base">My Entries History</CardTitle>
+          </div>
+          <Badge variant="secondary">{sorted.length} entries (30d)</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!sorted.length ? (
+          <EmptyState icon={Receipt} title="No entries yet" description="Your completed services will appear here" />
+        ) : (
+          <ScrollArea className="max-h-80">
+            <div className="space-y-2 pr-2">
+              {sorted.map((tx) => (
+                <div key={tx.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{tx.service?.name}</p>
+                      <PaymentMethodBadge method={tx.paymentMethod} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <span>{tx.completedAt ? format(new Date(tx.completedAt), 'MMM d, hh:mm a') : ''}</span>
+                      {tx.store?.name && <span>• {tx.store.name}</span>}
+                    </div>
+                    {tx.paymentMethod === 'SPLIT' && (
+                      <div className="flex gap-2 text-[10px] text-muted-foreground mt-0.5">
+                        <span className="text-emerald-600 dark:text-emerald-400">Cash: {formatCurrency(tx.cashAmount)}</span>
+                        <span className="text-blue-600 dark:text-blue-400">Online: {formatCurrency(tx.onlineAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">+{formatCurrency(tx.employeeNetShare)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatCurrency(tx.servicePrice)} total</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── MY ADVANCE (Employee) ─────────────────────────────────────
+function MyAdvanceSection({ employeeId, branchId }: { employeeId: string; branchId: string }) {
+  const { data: advances, refetch } = useFetch<Advance[]>(
+    `/api/salon/advances?employeeId=${employeeId}&branchId=${branchId}`
+  );
+  const totalRemaining = useMemo(() => (advances || []).reduce((s, a) => s + a.remainingAmount, 0), [advances]);
+  const totalRecovered = useMemo(() => (advances || []).reduce((s, a) => s + a.recoveredAmount, 0), [advances]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <HandCoins className="w-4 h-4 text-amber-500" />
+          <CardTitle className="text-base">My Advance</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Outstanding</p>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{formatCurrency(totalRemaining)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Recovered</p>
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalRecovered)}</p>
+          </div>
+        </div>
+        {!(advances || []).length ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No advances taken</p>
+        ) : (
+          <ScrollArea className="max-h-48">
+            <div className="space-y-2 pr-2">
+              {(advances || []).map((adv) => (
+                <div key={adv.id} className="flex items-center justify-between p-3 rounded-xl border">
+                  <div>
+                    <p className="text-sm font-medium">{formatCurrency(adv.amount)}</p>
+                    <p className="text-xs text-muted-foreground">{adv.reason} • {format(new Date(adv.date), 'MMM d')}</p>
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge status={adv.status} />
+                    <p className="text-xs text-muted-foreground mt-1">Due: {formatCurrency(adv.remainingAmount)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── LEAVE MANAGEMENT (Employee) ──────────────────────────────
+function LeaveManagementSection({ employeeId, branchId, authName }: { employeeId: string; branchId: string; authName: string }) {
+  const { data: leaves, refetch } = useFetch<Leave[]>(
+    `/api/salon/leaves?employeeId=${employeeId}&branchId=${branchId}`
+  );
+  const [leaveDate, setLeaveDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [leaveReason, setLeaveReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleApply = useCallback(async () => {
+    if (!leaveReason.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/leaves', { employeeId, branchId, date: leaveDate, reason: leaveReason.trim() });
+      toast.success('Leave application submitted');
+      setLeaveReason('');
+      refetch();
+    } catch (e) {
+      toast.error('Failed to apply for leave', { description: (e as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [employeeId, branchId, leaveDate, leaveReason, refetch]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <CalendarX className="w-4 h-4 text-rose-500" />
+          <CardTitle className="text-base">Leave Management</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Apply form */}
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 dark:bg-muted/20">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} className="h-9" min={format(new Date(), 'yyyy-MM-dd')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason</Label>
+              <Input value={leaveReason} onChange={e => setLeaveReason(e.target.value)} placeholder="Enter reason..." className="h-9" />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleApply} disabled={!leaveReason.trim() || submitting}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-xs h-8">
+            {submitting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CalendarX className="w-3 h-3 mr-1" />}
+            Apply for Leave
+          </Button>
+        </div>
+
+        {/* Leave history */}
+        {!(leaves || []).length ? (
+          <p className="text-sm text-muted-foreground text-center py-2">No leave applications yet</p>
+        ) : (
+          <ScrollArea className="max-h-48">
+            <div className="space-y-2 pr-2">
+              {(leaves || []).sort((a, b) => b.date.localeCompare(a.date)).map((lv) => (
+                <div key={lv.id} className="flex items-center justify-between p-3 rounded-xl border">
+                  <div>
+                    <p className="text-sm font-medium">{format(new Date(lv.date), 'EEE, MMM d, yyyy')}</p>
+                    <p className="text-xs text-muted-foreground">{lv.reason}</p>
+                  </div>
+                  <StatusBadge status={lv.status} />
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── COMMISSION PREVIEW (Employee) ────────────────────────────
+function CommissionPreviewSection({ employeeId, branchId }: { employeeId: string; branchId: string }) {
+  const { data: services } = useFetch<Service[]>('/api/salon/services');
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Percent className="w-4 h-4 text-violet-500" />
+          <CardTitle className="text-base">Commission Preview</CardTitle>
+        </div>
+        <CardDescription>Your earning split per service</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!services?.length ? (
+          <EmptyState icon={Percent} title="No services configured" description="Commission splits will appear when services are added" />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {services.filter(s => s.isActive).map((svc) => {
+              const empPct = svc.employeePercent || 50;
+              const ownerPct = svc.ownerPercent || 50;
+              const empEarning = Math.round(svc.price * (empPct / 100));
+              return (
+                <div key={svc.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
+                  <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{svc.name}</p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{formatCurrency(svc.price)}</span>
+                      <span className="text-violet-600 dark:text-violet-400 font-semibold">{empPct}%</span>
+                    </div>
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      You earn {formatCurrency(empEarning)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2800,7 +3169,430 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         storeId={activeStoreId}
         onSuccess={() => { refetchAppts(); setNewApptDialogOpen(false); }}
       />
+
+      {/* ─── PAYMENT METHOD ON RECORD SERVICE ────────────────── */}
+      <ManagerDayTransactionsSection storeId={activeStoreId} authUser={authUser} />
+
+      {/* ─── LEAVE REQUESTS TAB ───────────────────────────────── */}
+      <ManagerLeaveRequestsSection storeId={activeStoreId} authUser={authUser} />
+
+      {/* ─── DAILY PAYMENT ───────────────────────────────────── */}
+      <ManagerDailyPaymentSection storeId={activeStoreId} authUser={authUser} />
+
+      {/* ─── DAY CLOSE BUTTON ────────────────────────────────── */}
+      <ManagerDayCloseSection storeId={activeStoreId} authUser={authUser} />
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER DAY TRANSACTIONS (Payment Method)
+// ═══════════════════════════════════════════════════════════════════
+function ManagerDayTransactionsSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: transactions, refetch } = useFetch<Transaction[]>(
+    storeId ? `/api/salon/transactions?storeId=${storeId}&from=${today}&to=${today}` : null
+  );
+  const [recordPayDialogOpen, setRecordPayDialogOpen] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [payMethod, setPayMethod] = useState<'CASH' | 'ONLINE' | 'SPLIT'>('CASH');
+  const [splitCash, setSplitCash] = useState(0);
+  const [splitOnline, setSplitOnline] = useState(0);
+  const [updating, setUpdating] = useState(false);
+
+  const totalCash = useMemo(() => (transactions || []).filter(t => t.paymentMethod === 'CASH').reduce((s, t) => s + t.servicePrice, 0), [transactions]);
+  const totalOnline = useMemo(() => (transactions || []).filter(t => t.paymentMethod === 'ONLINE').reduce((s, t) => s + t.servicePrice, 0), [transactions]);
+  const splitTxns = useMemo(() => (transactions || []).filter(t => t.paymentMethod === 'SPLIT'), [transactions]);
+  const totalSplitCash = useMemo(() => splitTxns.reduce((s, t) => s + (t.cashAmount || 0), 0), [splitTxns]);
+  const totalSplitOnline = useMemo(() => splitTxns.reduce((s, t) => s + (t.onlineAmount || 0), 0), [splitTxns]);
+
+  const openRecordDialog = useCallback((tx: Transaction) => {
+    setSelectedTx(tx);
+    setPayMethod(tx.paymentMethod as 'CASH' | 'ONLINE' | 'SPLIT' || 'CASH');
+    setSplitCash(tx.cashAmount || 0);
+    setSplitOnline(tx.onlineAmount || 0);
+    setRecordPayDialogOpen(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!selectedTx) return;
+    if (payMethod === 'SPLIT') {
+      if (splitCash + splitOnline !== selectedTx.servicePrice) {
+        toast.error('Split amounts must sum to total', { description: `Cash (${splitCash}) + Online (${splitOnline}) ≠ ${selectedTx.servicePrice}` });
+        return;
+      }
+    }
+    setUpdating(true);
+    try {
+      await apiPatch(`/api/salon/transactions/${selectedTx.id}`, {
+        paymentMethod: payMethod,
+        cashAmount: payMethod === 'CASH' ? selectedTx.servicePrice : payMethod === 'ONLINE' ? 0 : splitCash,
+        onlineAmount: payMethod === 'ONLINE' ? selectedTx.servicePrice : payMethod === 'CASH' ? 0 : splitOnline,
+      });
+      toast.success('Payment method updated');
+      setRecordPayDialogOpen(false);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to update', { description: (e as Error).message });
+    } finally {
+      setUpdating(false);
+    }
+  }, [selectedTx, payMethod, splitCash, splitOnline, refetch]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-blue-500" />
+            <CardTitle className="text-base">Today&apos;s Payment Methods</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Cash: {formatCurrency(totalCash + totalSplitCash)}</Badge>
+            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Online: {formatCurrency(totalOnline + totalSplitOnline)}</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!(transactions || []).length ? (
+          <EmptyState icon={Receipt} title="No transactions today" description="Completed services will show here for payment method recording" />
+        ) : (
+          <ScrollArea className="max-h-64">
+            <div className="space-y-2 pr-2">
+              {(transactions || []).sort((a, b) => new Date(b.completedAt || '').getTime() - new Date(a.completedAt || '').getTime()).map((tx) => (
+                <div key={tx.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{tx.service?.name}</p>
+                    <p className="text-xs text-muted-foreground">{tx.employee?.name} • {tx.completedAt ? format(new Date(tx.completedAt), 'hh:mm a') : ''}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(tx.servicePrice)}</p>
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => openRecordDialog(tx)}>
+                    <Receipt className="w-3 h-3 mr-1" />
+                    {tx.paymentMethod || 'Set Method'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+
+        <Dialog open={recordPayDialogOpen} onOpenChange={(v) => !v && setRecordPayDialogOpen(false)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Record Payment Method</DialogTitle>
+              <DialogDescription>{selectedTx?.service?.name} — {formatCurrency(selectedTx?.servicePrice || 0)}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                {(['CASH', 'ONLINE', 'SPLIT'] as const).map((m) => (
+                  <button key={m} onClick={() => setPayMethod(m)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-all ${
+                      payMethod === m
+                        ? m === 'CASH' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700'
+                          : m === 'ONLINE' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20 text-blue-700'
+                          : 'border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-700'
+                        : 'border-gray-200 dark:border-gray-700 text-muted-foreground'
+                    }`}>
+                    {m === 'CASH' ? '💵 Cash' : m === 'ONLINE' ? '💳 Online' : '✂️ Split'}
+                  </button>
+                ))}
+              </div>
+              {payMethod === 'SPLIT' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cash Amount</Label>
+                    <Input type="number" value={splitCash} onChange={e => setSplitCash(Number(e.target.value))}
+                      className="h-9" min={0} max={selectedTx?.servicePrice || 0} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Online Amount</Label>
+                    <Input type="number" value={splitOnline} onChange={e => setSplitOnline(Number(e.target.value))}
+                      className="h-9" min={0} max={selectedTx?.servicePrice || 0} />
+                  </div>
+                  {payMethod === 'SPLIT' && (splitCash + splitOnline) !== (selectedTx?.servicePrice || 0) && (
+                    <p className="text-xs text-red-500">
+                      Total ({formatCurrency(splitCash + splitOnline)}) must equal {formatCurrency(selectedTx?.servicePrice || 0)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setRecordPayDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={updating} className="bg-blue-500 hover:bg-blue-600">
+                {updating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER LEAVE REQUESTS
+// ═══════════════════════════════════════════════════════════════════
+function ManagerLeaveRequestsSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const { data: leaves, refetch } = useFetch<Leave[]>(
+    storeId ? `/api/salon/leaves?branchId=${storeId}&status=PENDING` : null
+  );
+
+  const handleAction = useCallback(async (leaveId: string, action: 'APPROVED' | 'REJECTED') => {
+    try {
+      await apiPatch('/api/salon/leaves', { leaveId, status: action, reviewedBy: authUser?.id || '' });
+      toast.success(`Leave ${action.toLowerCase()}`);
+      refetch();
+    } catch (e) {
+      toast.error(`Failed to ${action.toLowerCase()} leave`, { description: (e as Error).message });
+    }
+  }, [authUser, refetch]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarX className="w-4 h-4 text-rose-500" />
+            <CardTitle className="text-base">Leave Requests</CardTitle>
+          </div>
+          <Badge variant="secondary">{(leaves || []).length} pending</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!(leaves || []).length ? (
+          <EmptyState icon={ClipboardCheck} title="No pending leave requests" description="All clear — no requests to review" />
+        ) : (
+          <div className="space-y-2">
+            {(leaves || []).map((lv) => (
+              <div key={lv.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-all">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs font-medium bg-gray-100 dark:bg-gray-800">{getInitials(lv.employee?.name || '?')}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{lv.employee?.name}</p>
+                  <p className="text-xs text-muted-foreground">{format(new Date(lv.date), 'EEE, MMM d')} • {lv.reason}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" className="h-7 text-xs px-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                    onClick={() => handleAction(lv.id, 'APPROVED')}>
+                    <UserCheck className="w-3 h-3 mr-0.5" /> Approve
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs px-2 bg-red-500 hover:bg-red-600 text-white"
+                    onClick={() => handleAction(lv.id, 'REJECTED')}>
+                    <UserX className="w-3 h-3 mr-0.5" /> Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER DAILY PAYMENT
+// ═══════════════════════════════════════════════════════════════════
+function ManagerDailyPaymentSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: employees } = useFetch<Employee[]>(storeId ? `/api/salon/employees?storeId=${storeId}` : null);
+  const { data: transactions, refetch: refetchTx } = useFetch<Transaction[]>(
+    storeId ? `/api/salon/transactions?storeId=${storeId}&from=${today}&to=${today}` : null
+  );
+  const { data: advances } = useFetch<Advance[]>(storeId ? `/api/salon/advances?branchId=${storeId}` : null);
+  const { data: payments, refetch: refetchPayments } = useFetch<Payment[]>(
+    storeId ? `/api/salon/payments?branchId=${storeId}&date=${today}` : null
+  );
+  const [paying, setPaying] = useState<string | null>(null);
+
+  const employeeSummary = useMemo(() => {
+    if (!employees) return [];
+    return employees.filter(e => e.role === 'STYLIST').map(emp => {
+      const empTxns = (transactions || []).filter(t => t.employeeId === emp.id);
+      const earned = empTxns.reduce((s, t) => s + t.employeeNetShare, 0);
+      const empAdvances = (advances || []).filter(a => a.employeeId === emp.id && a.status === 'ACTIVE');
+      const advanceDeduct = empAdvances.reduce((s, a) => s + a.remainingAmount, 0);
+      const netPayable = Math.max(0, earned - advanceDeduct);
+      const alreadyPaid = (payments || []).filter(p => p.employeeId === emp.id).reduce((s, p) => s + p.netPaid, 0);
+      return { employee: emp, earned, advanceDeduct, netPayable, alreadyPaid, services: empTxns.length };
+    });
+  }, [employees, transactions, advances, payments]);
+
+  const handleMarkPaid = useCallback(async (empId: string) => {
+    const emp = employeeSummary.find(e => e.employee.id === empId);
+    if (!emp || emp.alreadyPaid > 0) return;
+    setPaying(empId);
+    try {
+      await apiPost('/api/salon/payments', {
+        employeeId: empId,
+        branchId: storeId,
+        date: today,
+        earnedAmount: emp.earned,
+        advanceDeducted: emp.advanceDeduct,
+        netPaid: emp.netPayable,
+        paymentMethod: 'CASH',
+        paidBy: authUser?.id || '',
+      });
+      toast.success(`Payment recorded for ${emp.employee.name}`);
+      refetchPayments();
+    } catch (e) {
+      toast.error('Payment failed', { description: (e as Error).message });
+    } finally {
+      setPaying(null);
+    }
+  }, [employeeSummary, storeId, today, authUser?.id, refetchPayments]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Wallet className="w-4 h-4 text-indigo-500" />
+          <CardTitle className="text-base">Daily Payment</CardTitle>
+        </div>
+        <CardDescription>Track and record employee payments for today</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!employeeSummary.length ? (
+          <EmptyState icon={Users} title="No stylists found" description="No employees to pay" />
+        ) : (
+          <div className="space-y-2">
+            {employeeSummary.map((emp) => (
+              <div key={emp.employee.id} className="flex items-center gap-3 p-3 rounded-xl border">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs font-medium bg-blue-100 dark:bg-blue-900/30">{getInitials(emp.employee.name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{emp.employee.name}</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>Earned: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(emp.earned)}</span></span>
+                    {emp.advanceDeduct > 0 && <span>Advance: <span className="text-red-600 dark:text-red-400 font-semibold">-{formatCurrency(emp.advanceDeduct)}</span></span>}
+                    <span>Net: <span className="font-semibold">{formatCurrency(emp.netPayable)}</span></span>
+                  </div>
+                </div>
+                {emp.alreadyPaid > 0 ? (
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Paid {formatCurrency(emp.alreadyPaid)}
+                  </Badge>
+                ) : emp.netPayable > 0 ? (
+                  <Button size="sm" className="h-7 text-xs bg-indigo-500 hover:bg-indigo-600 text-white"
+                    disabled={paying === emp.employee.id || emp.services === 0}
+                    onClick={() => handleMarkPaid(emp.employee.id)}>
+                    {paying === emp.employee.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                    Mark Paid
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No earnings</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER DAY CLOSE
+// ═══════════════════════════════════════════════════════════════════
+function ManagerDayCloseSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: transactions } = useFetch<Transaction[]>(
+    storeId ? `/api/salon/transactions?storeId=${storeId}&from=${today}&to=${today}` : null
+  );
+  const { data: dayClose, refetch: refetchDayClose } = useFetch<DayClose[]>(
+    storeId ? `/api/salon/day-close?branchId=${storeId}&date=${today}` : null
+  );
+  const [closing, setClosing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const isClosed = (dayClose || []).length > 0 && (dayClose || [])[0]?.isLocked;
+  const totalRevenue = useMemo(() => (transactions || []).reduce((s, t) => s + t.servicePrice, 0), [transactions]);
+  const totalCash = useMemo(() => (transactions || []).reduce((s, t) => s + (t.cashAmount || 0) + (t.paymentMethod === 'CASH' ? t.servicePrice : 0), 0), [transactions]);
+  const totalOnline = useMemo(() => (transactions || []).reduce((s, t) => s + (t.onlineAmount || 0) + (t.paymentMethod === 'ONLINE' ? t.servicePrice : 0), 0), [transactions]);
+
+  const handleClose = useCallback(async () => {
+    setClosing(true);
+    try {
+      await apiPost('/api/salon/day-close', { branchId: storeId, date: today, closedBy: authUser?.id || '' });
+      toast.success('Day closed successfully 🔒');
+      setConfirmOpen(false);
+      refetchDayClose();
+    } catch (e) {
+      toast.error('Failed to close day', { description: (e as Error).message });
+    } finally {
+      setClosing(false);
+    }
+  }, [storeId, today, authUser?.id, refetchDayClose]);
+
+  return (
+    <Card className={`shadow-sm ${isClosed ? 'border-emerald-300 dark:border-emerald-700' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isClosed ? <Lock className="w-4 h-4 text-emerald-500" /> : <Unlock className="w-4 h-4 text-amber-500" />}
+            <CardTitle className="text-base">Day Close</CardTitle>
+          </div>
+          {isClosed ? (
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Closed</Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Open</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Revenue</p>
+            <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalRevenue)}</p>
+            <p className="text-[10px] text-muted-foreground">{(transactions || []).length} services</p>
+          </div>
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Cash</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalCash)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Online</p>
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalOnline)}</p>
+          </div>
+        </div>
+        {isClosed ? (
+          <div className="flex items-center justify-center gap-2 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Day has been closed for {format(new Date(today), 'MMM d, yyyy')}</p>
+          </div>
+        ) : (
+          <Button onClick={() => setConfirmOpen(true)} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md" size="lg">
+            <Lock className="w-4 h-4 mr-2" />
+            Close Day 🔒
+          </Button>
+        )}
+
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Confirm Day Close</DialogTitle>
+              <DialogDescription>This will lock all transactions for today. You won&apos;t be able to record new services.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 p-3 rounded-xl bg-muted/50 dark:bg-muted/20 text-sm">
+              <div className="flex justify-between"><span>Total Revenue</span><span className="font-bold">{formatCurrency(totalRevenue)}</span></div>
+              <div className="flex justify-between"><span>Cash</span><span className="text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(totalCash)}</span></div>
+              <div className="flex justify-between"><span>Online</span><span className="text-blue-600 dark:text-blue-400 font-medium">{formatCurrency(totalOnline)}</span></div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+              <Button onClick={handleClose} disabled={closing} className="bg-amber-500 hover:bg-amber-600">
+                {closing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4 mr-1" />}
+                Confirm Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -3945,6 +4737,21 @@ function OwnerView() {
         </CardContent>
       </Card>
 
+      {/* ─── SERVICE CATALOG MANAGEMENT ──────────────────────── */}
+      <OwnerServiceCatalogSection />
+
+      {/* ─── STAFF MANAGEMENT ────────────────────────────────── */}
+      <OwnerStaffManagementSection />
+
+      {/* ─── ADVANCE MANAGEMENT ─────────────────────────────── */}
+      <OwnerAdvanceManagementSection />
+
+      {/* ─── AUDIT LOG TIMELINE ─────────────────────────────── */}
+      <OwnerAuditLogSection />
+
+      {/* ─── MY PROFIT CALCULATION ──────────────────────────── */}
+      <OwnerProfitSection monthAnalytics={monthAnalytics} />
+
       {/* ─── SETTLEMENT ENGINE ────────────────────────────────── */}
       <Card className="overflow-hidden shadow-sm">
         <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 p-5 text-white">
@@ -4066,6 +4873,576 @@ function OwnerView() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER SERVICE CATALOG MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+function OwnerServiceCatalogSection() {
+  const { data: services, refetch } = useFetch<Service[]>('/api/salon/services');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [newPrice, setNewPrice] = useState(0);
+  const [newCategory, setNewCategory] = useState('HAIRCUT');
+  const [newDuration, setNewDuration] = useState(30);
+  const [newOwnerPct, setNewOwnerPct] = useState(50);
+  const [adding, setAdding] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const handleAdd = useCallback(async () => {
+    if (!newName.trim() || newPrice <= 0) return;
+    setAdding(true);
+    try {
+      await apiPost('/api/salon/services', {
+        name: newName.trim(),
+        price: newPrice,
+        category: newCategory,
+        duration: newDuration,
+        ownerPercent: newOwnerPct,
+        employeePercent: 100 - newOwnerPct,
+      });
+      toast.success('Service added');
+      setNewName(''); setNewPrice(0); setAddOpen(false);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to add service', { description: (e as Error).message });
+    } finally {
+      setAdding(false);
+    }
+  }, [newName, newPrice, newCategory, newDuration, newOwnerPct, refetch]);
+
+  const handleToggleActive = useCallback(async (svc: Service) => {
+    try {
+      await apiPatch(`/api/salon/services/${svc.id}`, { isActive: !svc.isActive });
+      toast.success(svc.isActive ? 'Service deactivated' : 'Service activated');
+      refetch();
+    } catch (e) {
+      toast.error('Failed to update', { description: (e as Error).message });
+    }
+  }, [refetch]);
+
+  const handleUpdateCommission = useCallback(async (svc: Service, ownerPct: number) => {
+    const empPct = 100 - ownerPct;
+    try {
+      await apiPatch(`/api/salon/services/${svc.id}`, { ownerPercent: ownerPct, employeePercent: empPct });
+      toast.success(`Commission updated: ${ownerPct}%/${empPct}%`);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to update commission', { description: (e as Error).message });
+    }
+  }, [refetch]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <CardTitle className="text-base">Service Catalog</CardTitle>
+          </div>
+          <Button size="sm" onClick={() => setAddOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Add Service Form */}
+        {addOpen && (
+          <div className="p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 space-y-3">
+            <h4 className="text-sm font-semibold">New Service</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Name</Label>
+                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Service name" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Price (₹)</Label>
+                <Input type="number" value={newPrice} onChange={e => setNewPrice(Number(e.target.value))} className="h-9" min={0} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Category</Label>
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_CATEGORIES.filter(c => c !== 'ALL').map(c => (
+                      <SelectItem key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duration (min)</Label>
+                <Input type="number" value={newDuration} onChange={e => setNewDuration(Number(e.target.value))} className="h-9" min={5} step={5} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Commission Split: Owner {newOwnerPct}% / Employee {100 - newOwnerPct}%</Label>
+              <Slider value={[newOwnerPct]} onValueChange={([v]) => setNewOwnerPct(v)} min={10} max={90} step={5} />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} disabled={!newName.trim() || newPrice <= 0 || adding} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+                {adding ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAddOpen(false)} className="text-xs h-8">Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Service List */}
+        <div className="space-y-2">
+          {(services || []).map((svc) => (
+            <div key={svc.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border ${!svc.isActive ? 'opacity-50' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{svc.name}</p>
+                  <Badge variant="outline" className="text-[10px]">{svc.category}</Badge>
+                  {!svc.isActive && <Badge className="bg-gray-100 text-gray-500">Inactive</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground">{formatCurrency(svc.price)} • {svc.duration}min</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-[180px]">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Commission:</span>
+                  <Slider
+                    value={[svc.ownerPercent || 50]}
+                    onValueChange={([v]) => handleUpdateCommission(svc, v)}
+                    min={10} max={90} step={5}
+                    className="flex-1"
+                  />
+                  <span className="text-xs font-semibold w-16 text-right">
+                    {svc.ownerPercent || 50}%/{svc.employeePercent || 50}%
+                  </span>
+                </div>
+                <Switch checked={svc.isActive} onCheckedChange={() => handleToggleActive(svc)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER STAFF MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+function OwnerStaffManagementSection() {
+  const { data: employees, refetch } = useFetch<Employee[]>('/api/salon/employees');
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newRole, setNewRole] = useState('STYLIST');
+  const [newStoreId, setNewStoreId] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [transferEmpId, setTransferEmpId] = useState<string | null>(null);
+  const [transferStoreId, setTransferStoreId] = useState('');
+
+  const handleAdd = useCallback(async () => {
+    if (!newName.trim() || !newPhone.trim() || !newStoreId) return;
+    setAdding(true);
+    try {
+      await apiPost('/api/salon/staff', { name: newName.trim(), phone: newPhone.trim(), role: newRole, storeId: newStoreId });
+      toast.success(`${newRole} added successfully`);
+      setNewName(''); setNewPhone(''); setAddOpen(false);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to add staff', { description: (e as Error).message });
+    } finally {
+      setAdding(false);
+    }
+  }, [newName, newPhone, newRole, newStoreId, refetch]);
+
+  const handleToggleActive = useCallback(async (emp: Employee) => {
+    try {
+      await apiPatch('/api/salon/staff', { employeeId: emp.id, isActive: !emp.isActive });
+      toast.success(emp.isActive ? 'Staff deactivated' : 'Staff activated');
+      refetch();
+    } catch (e) {
+      toast.error('Failed to update staff', { description: (e as Error).message });
+    }
+  }, [refetch]);
+
+  const handleTransfer = useCallback(async (empId: string) => {
+    if (!transferStoreId) return;
+    try {
+      await apiPatch('/api/salon/staff', { employeeId: empId, storeId: transferStoreId });
+      toast.success('Employee transferred');
+      setTransferEmpId(null);
+      refetch();
+    } catch (e) {
+      toast.error('Transfer failed', { description: (e as Error).message });
+    }
+  }, [transferStoreId, refetch]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-amber-500" />
+            <CardTitle className="text-base">Staff Management</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => { setNewRole('STYLIST'); setAddOpen(true); }}
+              className="bg-emerald-500 hover:bg-emerald-600 text-xs h-8">
+              <UserPlus className="w-3.5 h-3.5 mr-1" /> Stylist
+            </Button>
+            <Button size="sm" onClick={() => { setNewRole('MANAGER'); setAddOpen(true); }}
+              className="bg-blue-500 hover:bg-blue-600 text-xs h-8">
+              <UserPlus className="w-3.5 h-3.5 mr-1" /> Manager
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {addOpen && (
+          <div className="p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 space-y-3">
+            <h4 className="text-sm font-semibold">Add {newRole === 'MANAGER' ? 'Manager' : 'Stylist'}</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Name</Label>
+                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <Input value={newPhone} onChange={e => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Phone number" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Branch</Label>
+                <Select value={newStoreId} onValueChange={setNewStoreId}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                  <SelectContent>
+                    {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} disabled={!newName.trim() || !newPhone.trim() || !newStoreId || adding} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+                {adding ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                Add
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAddOpen(false)} className="text-xs h-8">Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {(employees || []).map((emp) => (
+            <div key={emp.id} className={`flex items-center gap-3 p-3 rounded-xl border ${!emp.isActive ? 'opacity-50' : ''}`}>
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="text-xs font-medium bg-amber-100 dark:bg-amber-900/30">{getInitials(emp.name)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{emp.name}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-[10px] px-1.5">{emp.role}</Badge>
+                  <span>{emp.store?.name}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => { setTransferEmpId(emp.id); setTransferStoreId(emp.storeId); }}>
+                  <Store className="w-3 h-3 mr-1" /> Transfer
+                </Button>
+                <Switch checked={emp.isActive} onCheckedChange={() => handleToggleActive(emp)} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Dialog open={!!transferEmpId} onOpenChange={(v) => !v && setTransferEmpId(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Transfer Employee</DialogTitle>
+              <DialogDescription>Move employee to a different branch</DialogDescription>
+            </DialogHeader>
+            <Select value={transferStoreId} onValueChange={setTransferStoreId}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <SelectContent>
+                {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setTransferEmpId(null)}>Cancel</Button>
+              <Button onClick={() => transferEmpId && handleTransfer(transferEmpId)} className="bg-amber-500 hover:bg-amber-600">Transfer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER ADVANCE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+function OwnerAdvanceManagementSection() {
+  const { data: advances, refetch } = useFetch<Advance[]>('/api/salon/advances');
+  const { data: employees } = useFetch<Employee[]>('/api/salon/employees');
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+  const [giveOpen, setGiveOpen] = useState(false);
+  const [advEmpId, setAdvEmpId] = useState('');
+  const [advAmount, setAdvAmount] = useState(0);
+  const [advReason, setAdvReason] = useState('');
+  const [advStoreId, setAdvStoreId] = useState('');
+  const [giving, setGiving] = useState(false);
+
+  const handleGive = useCallback(async () => {
+    if (!advEmpId || advAmount <= 0) return;
+    setGiving(true);
+    try {
+      await apiPost('/api/salon/advances', {
+        employeeId: advEmpId,
+        branchId: advStoreId,
+        amount: advAmount,
+        reason: advReason.trim() || 'General',
+      });
+      toast.success(`Advance of ${formatCurrency(advAmount)} given`);
+      setGiveOpen(false); setAdvAmount(0); setAdvReason('');
+      refetch();
+    } catch (e) {
+      toast.error('Failed to give advance', { description: (e as Error).message });
+    } finally {
+      setGiving(false);
+    }
+  }, [advEmpId, advStoreId, advAmount, advReason, refetch]);
+
+  const totalOutstanding = useMemo(() => (advances || []).reduce((s, a) => s + a.remainingAmount, 0), [advances]);
+  const totalRecovered = useMemo(() => (advances || []).reduce((s, a) => s + a.recoveredAmount, 0), [advances]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <HandCoins className="w-4 h-4 text-amber-500" />
+            <CardTitle className="text-base">Advance Management</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Outstanding: {formatCurrency(totalOutstanding)}</Badge>
+            <Button size="sm" onClick={() => setGiveOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+              <HandCoins className="w-3.5 h-3.5 mr-1" /> Give Advance
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {giveOpen && (
+          <div className="p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 space-y-3">
+            <h4 className="text-sm font-semibold">Give Advance</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Employee</Label>
+                <Select value={advEmpId} onValueChange={setAdvEmpId}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                  <SelectContent>
+                    {(employees || []).map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Amount (₹)</Label>
+                <Input type="number" value={advAmount} onChange={e => setAdvAmount(Number(e.target.value))} className="h-9" min={0} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Branch</Label>
+                <Select value={advStoreId} onValueChange={setAdvStoreId}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                  <SelectContent>
+                    {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason</Label>
+              <Input value={advReason} onChange={e => setAdvReason(e.target.value)} placeholder="Reason for advance..." className="h-9" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleGive} disabled={!advEmpId || advAmount <= 0 || !advStoreId || giving} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+                {giving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                Give Advance
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setGiveOpen(false)} className="text-xs h-8">Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {(advances || []).sort((a, b) => b.date.localeCompare(a.date)).map((adv) => (
+            <div key={adv.id} className="flex items-center gap-3 p-3 rounded-xl border">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="text-xs font-medium bg-amber-100 dark:bg-amber-900/30">{getInitials(adv.employee?.name || '?')}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{adv.employee?.name}</p>
+                <p className="text-xs text-muted-foreground">{adv.reason} • {format(new Date(adv.date), 'MMM d')}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-bold">{formatCurrency(adv.amount)}</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-emerald-600 dark:text-emerald-400">Recovered: {formatCurrency(adv.recoveredAmount)}</span>
+                  <StatusBadge status={adv.status} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER AUDIT LOG TIMELINE
+// ═══════════════════════════════════════════════════════════════════
+function OwnerAuditLogSection() {
+  const { data: logs } = useFetch<AuditLog[]>('/api/salon/audit-logs');
+  const [filterAction, setFilterAction] = useState('ALL');
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+  const [filterBranch, setFilterBranch] = useState('ALL');
+
+  const filtered = useMemo(() => {
+    if (!logs) return [];
+    return logs.filter(log => {
+      if (filterAction !== 'ALL' && !log.action.toLowerCase().includes(filterAction.toLowerCase())) return false;
+      if (filterBranch !== 'ALL' && log.branchId !== filterBranch) return false;
+      return true;
+    });
+  }, [logs, filterAction, filterBranch]);
+
+  function getLogColor(action: string) {
+    const a = action.toLowerCase();
+    if (a.includes('edit') || a.includes('update') || a.includes('modify')) return 'border-l-red-500 bg-red-50/50 dark:bg-red-950/10';
+    if (a.includes('commission') || a.includes('percent')) return 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/10';
+    if (a.includes('unlock') || a.includes('day')) return 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/10';
+    if (a.includes('advance') || a.includes('payment')) return 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10';
+    if (a.includes('leave')) return 'border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/10';
+    if (a.includes('create') || a.includes('add')) return 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10';
+    if (a.includes('deactivate') || a.includes('delete') || a.includes('remove')) return 'border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/10';
+    return 'border-l-rose-500 bg-rose-50/50 dark:bg-rose-950/10';
+  }
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <FileWarning className="w-4 h-4 text-amber-500" />
+            <CardTitle className="text-base">Audit Log</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Select value={filterBranch} onValueChange={setFilterBranch}>
+              <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue placeholder="Branch" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Branches</SelectItem>
+                {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterAction} onValueChange={setFilterAction}>
+              <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue placeholder="Action" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Actions</SelectItem>
+                <SelectItem value="commission">Commission</SelectItem>
+                <SelectItem value="advance">Advance</SelectItem>
+                <SelectItem value="payment">Payment</SelectItem>
+                <SelectItem value="leave">Leave</SelectItem>
+                <SelectItem value="day">Day Close</SelectItem>
+                <SelectItem value="create">Create</SelectItem>
+                <SelectItem value="deactivate">Deactivate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!filtered.length ? (
+          <EmptyState icon={FileWarning} title="No audit logs" description="Audit entries will appear here as changes are made" />
+        ) : (
+          <ScrollArea className="max-h-80">
+            <div className="space-y-2 pr-2">
+              {filtered.slice(0, 50).map((log) => (
+                <div key={log.id} className={`p-3 rounded-xl border-l-4 ${getLogColor(log.action)}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{log.action}</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {log.timestamp ? format(new Date(log.timestamp), 'MMM d, hh:mm a') : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                    <span>by {log.employee?.name || log.performedBy || 'System'}</span>
+                    {log.oldValue && <span className="text-red-500">from: {log.oldValue.length > 50 ? log.oldValue.slice(0, 50) + '...' : log.oldValue}</span>}
+                    {log.newValue && <span className="text-emerald-500">to: {log.newValue.length > 50 ? log.newValue.slice(0, 50) + '...' : log.newValue}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER PROFIT CALCULATION
+// ═══════════════════════════════════════════════════════════════════
+function OwnerProfitSection({ monthAnalytics }: { monthAnalytics: AnalyticsData | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const { data: monthExpenses } = useFetch<Expense[]>(`/api/salon/expenses?from=${monthStart}&to=${today}`);
+  const { data: advances } = useFetch<Advance[]>('/api/salon/advances');
+
+  const totalRevenue = monthAnalytics?.totalRevenue || 0;
+  const employeeEarnings = monthAnalytics?.totalEmployeePayout || 0;
+  const totalExpenses = useMemo(() => (monthExpenses || []).reduce((s, e) => s + e.amount, 0), [monthExpenses]);
+  const advancesGiven = useMemo(() => {
+    if (!advances) return 0;
+    const monthStr = today.slice(0, 7);
+    return advances.filter(a => a.date.startsWith(monthStr)).reduce((s, a) => s + a.amount, 0);
+  }, [advances, today]);
+
+  const myProfit = totalRevenue - employeeEarnings - totalExpenses - advancesGiven;
+
+  return (
+    <Card className="shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 p-5 text-white">
+        <div className="flex items-center gap-2 mb-1">
+          <Crown className="w-5 h-5" />
+          <h3 className="text-lg font-bold">MY PROFIT</h3>
+        </div>
+        <p className="text-sm text-white/80">Revenue − Employee Earnings − Expenses − Advances Given</p>
+      </div>
+      <CardContent className="p-5">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Revenue</p>
+            <p className="text-base font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalRevenue)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Employee Payout</p>
+            <p className="text-base font-bold text-blue-600 dark:text-blue-400">-{formatCurrency(employeeEarnings)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Expenses</p>
+            <p className="text-base font-bold text-red-600 dark:text-red-400">-{formatCurrency(totalExpenses)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-center">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Advances Given</p>
+            <p className="text-base font-bold text-amber-600 dark:text-amber-400">-{formatCurrency(advancesGiven)}</p>
+          </div>
+          <div className={`p-3 rounded-xl text-center col-span-2 md:col-span-1 ${myProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">My Profit</p>
+            <p className={`text-xl font-bold ${myProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              {formatCurrency(myProfit)}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
