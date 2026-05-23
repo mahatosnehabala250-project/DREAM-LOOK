@@ -22,7 +22,7 @@ export async function PATCH(
       data: { status },
       include: {
         customer: true,
-        store: true,
+        Store: true,
         employee: true,
         service: true,
       },

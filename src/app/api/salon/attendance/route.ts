@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         employee: true,
-        store: true,
+        Store: true,
       },
       orderBy: [{ date: 'desc' }, { checkIn: 'asc' }],
     })
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         employee: true,
-        store: true,
+        Store: true,
       },
     })
 

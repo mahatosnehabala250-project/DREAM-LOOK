@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       include: {
         employee: true,
         service: true,
-        store: true,
+        Store: true,
       },
       orderBy: { completedAt: 'asc' },
     })

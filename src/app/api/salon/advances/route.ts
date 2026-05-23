@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         employee: { select: { id: true, name: true, role: true, avatar: true } },
-        store: { select: { id: true, name: true } },
+        Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         employeeId, branchId, amount, reason, date: new Date().toISOString().slice(0, 10),
         recoveredAmount: 0, remainingAmount: amount, givenBy, status: 'ACTIVE',
       },
-      include: { employee: true, store: true },
+      include: { employee: true, Store: true },
     });
 
     // Audit log
@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await db.advance.update({
       where: { id: advanceId },
       data: { recoveredAmount: newRecovered, remainingAmount: Math.max(0, remaining), status: newStatus },
-      include: { employee: true, store: true },
+      include: { employee: true, Store: true },
     });
 
     return NextResponse.json(updated);

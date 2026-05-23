@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         customer: true,
-        store: true,
+        Store: true,
         employee: true,
         service: true,
       },

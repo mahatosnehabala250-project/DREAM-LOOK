@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         employee: { select: { id: true, name: true, role: true, avatar: true } },
-        store: { select: { id: true, name: true } },
+        Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const leave = await db.leave.create({
       data: { employeeId, branchId, date, reason, status: 'PENDING' },
-      include: { employee: true, store: true },
+      include: { employee: true, Store: true },
     });
 
     // Create audit log
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest) {
     const leave = await db.leave.update({
       where: { id: leaveId },
       data: { status, reviewedBy, reviewedAt: new Date() },
-      include: { employee: true, store: true },
+      include: { employee: true, Store: true },
     });
 
     // Create audit log

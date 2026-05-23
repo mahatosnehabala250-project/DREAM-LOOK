@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       // Return all employees' settlements
       const employees = await db.employee.findMany({
         where: { isActive: true },
-        include: { store: true },
+        include: { Store: true },
         orderBy: { name: 'asc' },
       })
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // Get settlement for specific employee
     const employee = await db.employee.findUnique({
       where: { id: employeeId },
-      include: { store: true },
+      include: { Store: true },
     })
 
     if (!employee) {
@@ -76,7 +76,7 @@ async function buildEmployeeSettlement(
 ) {
   const employee = await db.employee.findUnique({
     where: { id: employeeId },
-    include: { store: true },
+    include: { Store: true },
   })
 
   if (!employee) return null
@@ -107,7 +107,7 @@ async function buildEmployeeSettlement(
         id: employee.id,
         name: employee.name,
         role: employee.role,
-        store: employee.store ? { id: employee.store.id, name: employee.store.name } : null,
+        store: employee.Store ? { id: employee.Store.id, name: employee.Store.name } : null,
       },
       period: {
         from: startDate.toISOString().split('T')[0],
@@ -164,7 +164,7 @@ async function buildEmployeeSettlement(
       id: employee.id,
       name: employee.name,
       role: employee.role,
-      store: employee.store ? { id: employee.store.id, name: employee.store.name } : null,
+      store: employee.Store ? { id: employee.Store.id, name: employee.Store.name } : null,
     },
     period: {
       from: startDate.toISOString().split('T')[0],

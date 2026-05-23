@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         employee: { select: { id: true, name: true, role: true, avatar: true } },
-        store: { select: { id: true, name: true } },
+        Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const payment = await db.payment.create({
       data: { employeeId, branchId, date, earnedAmount, advanceDeducted: advanceDeducted || 0, netPaid, paymentMethod: paymentMethod || 'CASH', paidBy },
-      include: { employee: true, store: true },
+      include: { employee: true, Store: true },
     });
 
     return NextResponse.json(payment, { status: 201 });

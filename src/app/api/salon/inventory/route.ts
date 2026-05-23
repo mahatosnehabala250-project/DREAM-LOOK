@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         product: true,
-        store: true,
+        Store: true,
       },
       orderBy: { updatedAt: 'desc' },
     })

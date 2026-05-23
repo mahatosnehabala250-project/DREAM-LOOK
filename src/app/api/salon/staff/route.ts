@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         storeId, skillTags: skillTags || '',
         joiningDate: new Date().toISOString().slice(0, 10),
       },
-      include: { store: true },
+      include: { Store: true },
     });
 
     // Audit log
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest) {
       updated = await db.employee.update({
         where: { id: employeeId },
         data: { storeId: data.newStoreId },
-        include: { store: true },
+        include: { Store: true },
       });
       await db.auditLog.create({
         data: {

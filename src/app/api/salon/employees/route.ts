@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...(storeId ? { storeId } : {}),
       },
-      include: { store: true },
+      include: { Store: true },
       orderBy: { name: 'asc' },
     })
     return NextResponse.json(employees)

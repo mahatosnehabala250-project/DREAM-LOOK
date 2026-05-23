@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         customer: true,
-        store: true,
+        Store: true,
         employee: true,
         service: true,
       },

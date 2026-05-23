@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const dayCloses = await db.dayClose.findMany({
       where,
       include: {
-        store: { select: { id: true, name: true } },
+        Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const dayClose = await db.dayClose.create({
       data: { branchId, date, totalRevenue, totalCash, totalOnline, totalServices: txns.length, closedBy, isLocked: true },
-      include: { store: true },
+      include: { Store: true },
     });
 
     // Audit log

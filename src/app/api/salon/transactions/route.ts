@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       include: {
         employee: true,
         service: true,
-        store: true,
+        Store: true,
         productsUsed: {
           include: { product: true },
         },
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       include: {
         service: true,
         employee: true,
-        store: true,
+        Store: true,
         customer: true,
       },
     })
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         include: {
           employee: true,
           service: true,
-          store: true,
+          Store: true,
           productsUsed: {
             include: { product: true },
           },

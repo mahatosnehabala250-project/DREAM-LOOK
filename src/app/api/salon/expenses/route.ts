@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const expenses = await db.expense.findMany({
       where,
-      include: { store: true },
+      include: { Store: true },
       orderBy: { expenseDate: 'desc' },
     })
     return NextResponse.json(expenses)
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const expense = await db.expense.create({
       data: { storeId, category, description, amount: parseFloat(amount), expenseDate },
-      include: { store: true },
+      include: { Store: true },
     })
     return NextResponse.json(expense, { status: 201 })
   } catch (error) {

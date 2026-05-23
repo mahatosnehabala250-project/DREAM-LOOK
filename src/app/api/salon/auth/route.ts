@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         isActive: true,
       },
       include: {
-        store: {
+        Store: {
           select: { id: true, name: true, address: true, city: true },
         },
       },
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
         phone: employee.phone,
         role: employee.role,
         storeId: employee.storeId,
-        storeName: employee.store?.name || '',
-        storeCity: employee.store?.city || '',
+        storeName: employee.Store?.name || '',
+        storeCity: employee.Store?.city || '',
       },
     });
   } catch (error) {
