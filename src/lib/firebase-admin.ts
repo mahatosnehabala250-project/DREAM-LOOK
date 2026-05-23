@@ -1,9 +1,35 @@
 import admin from 'firebase-admin';
 import path from 'path';
+import { existsSync } from 'fs';
 
-const SERVICE_ACCOUNT_PATH = path.join(process.cwd(), 'firebase-service-account.json');
-const STORAGE_BUCKET = 'dream-look-e409a.firebasestorage.app';
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dream-look-e409a.firebasestorage.app';
 const APP_NAME = 'dream-look-admin';
+
+function getServiceAccountCredential(): admin.credential.Credential {
+  // Priority 1: Environment variable (for Vercel / production)
+  const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (envKey) {
+    try {
+      const serviceAccount = JSON.parse(envKey);
+      console.log('[Firebase] Using service account from FIREBASE_SERVICE_ACCOUNT_KEY env var');
+      return admin.credential.cert(serviceAccount);
+    } catch {
+      console.error('[Firebase] FIREBASE_SERVICE_ACCOUNT_KEY env var exists but is not valid JSON');
+    }
+  }
+
+  // Priority 2: Local file (for development)
+  const filePath = path.join(process.cwd(), 'firebase-service-account.json');
+  if (existsSync(filePath)) {
+    console.log('[Firebase] Using service account from firebase-service-account.json file');
+    return admin.credential.cert(filePath);
+  }
+
+  throw new Error(
+    'Firebase Admin SDK: No service account found. ' +
+    'Set FIREBASE_SERVICE_ACCOUNT_KEY env var or place firebase-service-account.json in project root.'
+  );
+}
 
 export function getFirebaseAdmin(): admin.app.App {
   // Check for existing app (handles hot reload)
@@ -14,7 +40,7 @@ export function getFirebaseAdmin(): admin.app.App {
   try {
     const app = admin.initializeApp(
       {
-        credential: admin.credential.cert(SERVICE_ACCOUNT_PATH),
+        credential: getServiceAccountCredential(),
         storageBucket: STORAGE_BUCKET,
       },
       APP_NAME
@@ -23,7 +49,7 @@ export function getFirebaseAdmin(): admin.app.App {
     return app;
   } catch (error) {
     console.error('[Firebase] ❌ Admin SDK initialization failed:', error);
-    throw new Error('Firebase Admin SDK initialization failed. Make sure firebase-service-account.json exists.');
+    throw new Error('Firebase Admin SDK initialization failed.');
   }
 }
 
