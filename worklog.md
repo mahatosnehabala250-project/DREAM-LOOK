@@ -808,3 +808,62 @@ Product costs were set as per-unit wholesale prices but at retail markups:
 ### Lint: Zero errors
 ### Dev server: Running on port 3000
 ### READY FOR PRODUCTION: ✅ YES
+
+---
+
+## Owner Branch Navigation Fix - 2026-05-23
+
+### Task: Fix Owner branch click bug — Owner cannot enter a branch after clicking on it
+
+### User Request
+"branch pe click ke bad uus mein nhi ghus pa rahi he owner" — Owner clicks on a store card in the Store Comparison section but nothing happens; no way to drill into a specific branch.
+
+### Root Cause
+`StoreComparisonDashboard` had an unused `onSelectStore` prop (parameter defined but never passed from `OwnerView` and never connected to any click handler on the store cards). The store cards were display-only.
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | ~210 lines added | New `OwnerBranchDetailView` component + click handlers + state management |
+
+### Changes Made:
+
+#### 1. StoreComparisonDashboard — Clickable Cards
+- Store cards now have `onClick={() => onSelectStore?.(storeId)}` handler
+- Added `cursor-pointer` and `hover:border-rose-200` styling
+- Added "View Store →" hover indicator (rose color, opacity transition)
+- Added `group` class for group hover effect
+
+#### 2. OwnerView — Branch Selection State
+- Added `const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)`
+- Passed `onSelectStore={(storeId) => setSelectedBranchId(storeId)}` to `StoreComparisonDashboard`
+- Added conditional render: when `selectedBranchId` is set, shows `OwnerBranchDetailView` instead of overview
+
+#### 3. New Component: `OwnerBranchDetailView` (~200 lines)
+Full branch management view for Owner, showing:
+- **Back button** ("← All Stores") with ChevronLeft icon
+- **Store header**: Building2 icon with emerald gradient, store name, city, address, "Active Branch" badge
+- **4 stat cards**: Today's Revenue, Appointments (with pending count), Staff Present, Low Stock
+- **Monthly Performance card**: Revenue, Transactions, Owner's Share, Product Costs (4-column grid)
+- **Branch Staff section**: Grid of employee cards with avatar, name, role, attendance status badge
+- **Today's Appointments section**: Scrollable list with customer name, status badge, service, time, stylist, price
+- **Inventory section**: Grid of product cards with stock indicator, progress bar, quantity
+
+### QA Test Results (agent-browser):
+| Test | Result | Details |
+|------|--------|---------|
+| Owner login | ✅ Pass | Rajesh Kumar authenticated, dashboard loaded |
+| Store Comparison hover | ✅ Pass | "View Store →" text appears on hover in rose color |
+| Click MG Road card | ✅ Pass | Navigated to branch detail view |
+| Branch detail stats | ✅ Pass | Revenue ₹1,400, 3 transactions, 4/4 staff, 0 low stock |
+| Branch staff display | ✅ Pass | 5 members with attendance badges |
+| Appointments display | ✅ Pass | 5 appointments with status/price |
+| Inventory display | ✅ Pass | 12 items, all in stock |
+| "← All Stores" back button | ✅ Pass | Returns to overview dashboard |
+
+### Firebase Project Confirmation
+User shared: `projectId: dream-look-e409a`, `name: dream look`, `lifecycleState: ACTIVE`
+✅ Confirmed: This IS the correct project associated with the Dream Look salon app.
+
+### Lint: Zero errors
+### Dev server: Running on port 3000

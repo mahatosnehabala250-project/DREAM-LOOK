@@ -3348,7 +3348,7 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
 // ═══════════════════════════════════════════════════════════════════
 // STORE COMPARISON
 // ═══════════════════════════════════════════════════════════════════
-function StoreComparisonDashboard() {
+function StoreComparisonDashboard({ onSelectStore }: { onSelectStore?: (storeId: string) => void }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
 
@@ -3405,7 +3405,8 @@ function StoreComparisonDashboard() {
             const isTop = s.store?.id === topStoreId && rev > 0;
             return (
               <div key={s.store?.id || i}
-                className={`relative p-4 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-md ${isTop ? 'border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/20' : ''}`}>
+                onClick={() => onSelectStore?.(s.store?.id || '')}
+                className={`group relative p-4 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${isTop ? 'border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/20' : 'hover:border-rose-200 dark:hover:border-rose-800'}`}>
                 {isTop && (
                   <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
                     <Trophy className="w-3 h-3 text-white" />
@@ -3435,7 +3436,9 @@ function StoreComparisonDashboard() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{tx} transactions</span>
-                    <span>{pct.toFixed(0)}% of total</span>
+                    <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-rose-500 dark:text-rose-400 font-medium">
+                      View Store <ChevronRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </div>
               </div>
@@ -3448,6 +3451,216 @@ function StoreComparisonDashboard() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// OWNER BRANCH DETAIL VIEW
+// ═══════════════════════════════════════════════════════════════════
+function OwnerBranchDetailView({ storeId, onBack }: { storeId: string; onBack: () => void }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+
+  const { data: storeList } = useFetch<Store[]>('/api/salon/stores');
+  const selectedStore = (storeList || []).find((s) => s.id === storeId);
+
+  const { data: branchTodayAnalytics } = useFetch<AnalyticsData>(`/api/salon/analytics?storeId=${storeId}&from=${today}&to=${today}`);
+  const { data: branchMonthAnalytics } = useFetch<AnalyticsData>(`/api/salon/analytics?storeId=${storeId}&from=${monthAgo}&to=${today}`);
+
+  const { data: branchAppointments } = useFetch<Appointment[]>(`/api/salon/appointments?storeId=${storeId}&date=${today}`);
+  const { data: branchEmployees } = useFetch<Employee[]>(`/api/salon/employees?storeId=${storeId}`);
+  const { data: branchInventory } = useFetch<InventoryItem[]>(`/api/salon/inventory?storeId=${storeId}`);
+  const { data: branchAttendance } = useFetch<AttendanceRecord[]>(`/api/salon/attendance?storeId=${storeId}&date=${today}`);
+
+  const presentCount = (branchAttendance || []).filter(a => a.status === 'PRESENT' || a.status === 'HALF_DAY').length;
+  const lowStockCount = (branchInventory || []).filter(i => i.isLow).length;
+  const pendingAppts = (branchAppointments || []).filter(a => a.status === 'PENDING').length;
+  const todayRev = branchTodayAnalytics?.totalRevenue || 0;
+  const todayTx = branchTodayAnalytics?.totalTransactions || 0;
+  const monthRev = branchMonthAnalytics?.totalRevenue || 0;
+
+  const branchName = selectedStore?.name || 'Store';
+  const branchCity = selectedStore?.city || '';
+  const branchAddr = selectedStore?.address || '';
+
+  return (
+    <div className="space-y-6">
+      {/* Back Button + Store Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-1.5">
+            <ChevronLeft className="w-4 h-4" /> All Stores
+          </Button>
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
+                <Building2 className="w-5 h-5 text-white" />
+              </div>
+              {branchName}
+            </h2>
+            <p className="text-sm text-muted-foreground ml-12">{branchCity} • {branchAddr}</p>
+          </div>
+        </div>
+        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+          <CircleDot className="w-3 h-3 mr-1" /> Active Branch
+        </Badge>
+      </div>
+
+      {/* Branch Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={DollarSign} label="Today's Revenue" value={formatCurrency(todayRev)} sub={`${todayTx} transactions`} gradient="bg-gradient-to-r from-rose-500 to-pink-500" index={0} />
+        <StatCard icon={Calendar} label="Appointments" value={String((branchAppointments || []).length)} sub={`${pendingAppts} pending`} gradient="bg-gradient-to-r from-violet-500 to-purple-500" index={1} />
+        <StatCard icon={Users} label="Staff Present" value={`${presentCount}/${(branchAttendance || []).length || '-'}`} sub="Checked in today" gradient="bg-gradient-to-r from-emerald-500 to-green-500" index={2} />
+        <StatCard icon={Package} label="Low Stock" value={String(lowStockCount)} sub={`of ${(branchInventory || []).length} items`} gradient="bg-gradient-to-r from-amber-500 to-orange-500" index={3} />
+      </div>
+
+      {/* Monthly Revenue Card */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Monthly Performance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20 text-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Month Revenue</p>
+              <p className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">{formatCurrency(monthRev)}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20 text-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Month Transactions</p>
+              <p className="text-lg font-bold mt-1">{branchMonthAnalytics?.totalTransactions || 0}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20 text-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Owner's Share</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1">{formatCurrency(branchMonthAnalytics?.totalOwnerShare || 0)}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-muted/50 dark:bg-muted/20 text-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Product Costs</p>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(branchMonthAnalytics?.totalProductCost || 0)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff at this branch */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-violet-500" />
+            <CardTitle className="text-base">Branch Staff</CardTitle>
+            <Badge variant="secondary" className="text-[10px]">{(branchEmployees || []).length} members</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(!branchEmployees || branchEmployees.length === 0) ? (
+            <EmptyState icon={Users} title="No staff" description="No employees assigned to this branch" />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(branchEmployees || []).map((emp) => {
+                const att = (branchAttendance || []).find(a => a.employeeId === emp.id);
+                return (
+                  <div key={emp.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-shadow">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-rose-100 to-pink-100 dark:from-rose-950/40 dark:to-pink-950/40">
+                        {getInitials(emp.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{emp.name}</p>
+                      <p className="text-xs text-muted-foreground">{emp.role}</p>
+                    </div>
+                    {att && <StatusBadge status={att.status} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Today's Appointments */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-rose-500" />
+              <CardTitle className="text-base">Today's Appointments</CardTitle>
+              <Badge variant="secondary" className="text-[10px]">{format(new Date(), 'MMM d')}</Badge>
+            </div>
+            <span className="text-xs text-muted-foreground">{(branchAppointments || []).length} total</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(!branchAppointments || branchAppointments.length === 0) ? (
+            <EmptyState icon={Calendar} title="No appointments today" description="No appointments scheduled for this branch today" />
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {branchAppointments.map((apt) => (
+                <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl border hover:shadow-sm transition-shadow">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{apt.customer?.name}</p>
+                      <StatusBadge status={apt.status} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <span>{apt.service?.name}</span>
+                      <span>•</span>
+                      <span>{formatTime(apt.time)}</span>
+                      <span>•</span>
+                      <span>{apt.employee?.name}</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-rose-600 dark:text-rose-400 shrink-0">
+                    {formatCurrency(apt.service?.price || 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Inventory Overview */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-amber-500" />
+              <CardTitle className="text-base">Inventory</CardTitle>
+              {lowStockCount > 0 && (
+                <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800 text-[10px]">
+                  {lowStockCount} low stock
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(!branchInventory || branchInventory.length === 0) ? (
+            <EmptyState icon={Package} title="No inventory" description="No products tracked for this branch" />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {(branchInventory || []).map((inv) => (
+                <div key={inv.id} className={`p-3 rounded-xl border transition-all ${inv.isLow ? 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10' : ''}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium truncate">{inv.product.name}</p>
+                    <StockIndicator quantity={inv.quantity} reorderLevel={inv.reorderLevel} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${inv.quantity === 0 ? 'bg-red-500' : inv.isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min(100, (inv.quantity / (inv.reorderLevel * 2)) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{inv.quantity} {inv.product.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // OWNER VIEW - OWNER PANEL
 // ═══════════════════════════════════════════════════════════════════
 function OwnerView() {
@@ -3455,6 +3668,9 @@ function OwnerView() {
   const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
   const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd');
+
+  // Branch drill-down state
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
   // Analytics date range state
   const [analyticsRange, setAnalyticsRange] = useState<'today' | 'week' | 'month' | 'all'>('all');
@@ -3581,6 +3797,16 @@ function OwnerView() {
 
   if (todayLoading || yearLoading) return <ViewSkeleton />;
 
+  // If a branch is selected, show branch detail view
+  if (selectedBranchId) {
+    return (
+      <OwnerBranchDetailView
+        storeId={selectedBranchId}
+        onBack={() => setSelectedBranchId(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Revenue Cards */}
@@ -3667,7 +3893,7 @@ function OwnerView() {
       </div>
 
       {/* Store Comparison */}
-      <StoreComparisonDashboard />
+      <StoreComparisonDashboard onSelectStore={(storeId) => setSelectedBranchId(storeId)} />
 
       {/* Expense Tracker */}
       <ExpenseTracker monthAnalytics={monthAnalytics} />
