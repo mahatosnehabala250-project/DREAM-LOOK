@@ -543,10 +543,25 @@ export default function Home() {
 
   const handleLogin = useCallback(async (phone: string, role: string) => {
     try {
+      // Request FCM notification permission & token
+      let fcmToken: string | null = null;
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const { getMessaging, getToken } = await import('firebase/messaging');
+          const { app } = await import('@/lib/firebase-client');
+          fcmToken = await getToken(getMessaging(app), { vapidKey: 'BG2..............YOUR_VAPID_KEY' });
+        }
+      } catch (fcmErr) {
+        console.warn('FCM token not available:', fcmErr);
+      }
+
       const res = await fetch('/api/salon/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, role }),
+        body: JSON.stringify({ phone, role, fcmToken: fcmToken || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');

@@ -68,3 +68,6 @@ server.log
 
 # Caddy config (server-specific)
 Caddyfile
+
+# Firebase service account key (NEVER commit!)
+firebase-service-account.json

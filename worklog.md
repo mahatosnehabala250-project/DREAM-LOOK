@@ -614,3 +614,95 @@ employeeNetShare = ₹250 - ₹1,800 = -₹1,550
 ### Lint: Zero errors, zero warnings
 ### Dev server: Running on port 3000, all API endpoints returning 200
 
+---
+
+## Firebase Integration - 2026-05-23
+
+### Task: Connect Dream Look website with Firebase (dream-look-e409a project)
+
+### User Request
+"website ke liye chahiye only" — User provided Firebase Admin SDK service account key for integrating Firebase into the Next.js web application.
+
+### Packages Installed (2):
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `firebase-admin` | 13.10.0 | Server-side Firebase SDK (Auth, Firestore, Storage, FCM) |
+| `firebase` | 12.13.0 | Client-side Firebase SDK (FCM push notifications) |
+
+### Files Created (5):
+| File | Description |
+|------|-------------|
+| `firebase-service-account.json` | Firebase Admin SDK service account key (gitignored, never committed) |
+| `src/lib/firebase-admin.ts` | Firebase Admin SDK initialization + helper functions |
+| `src/lib/firebase-client.ts` | Firebase client SDK config (for web push) |
+| `src/app/api/salon/storage/route.ts` | POST: Upload image, DELETE: Delete image |
+| `src/app/api/salon/notifications/route.ts` | POST: Send push notification (single/multicast) |
+| `src/app/api/salon/firebase-auth/register-token/route.ts` | POST: Register FCM device token, GET: Get user tokens |
+
+### Files Modified (3):
+| File | Change |
+|------|--------|
+| `src/app/api/salon/auth/route.ts` | Added Firebase token verification + FCM token registration on login |
+| `src/app/page.tsx` | Added FCM token request + notification permission in login flow |
+| `.gitignore` | Added `firebase-service-account.json` to prevent committing secrets |
+
+### Firebase Features Integrated:
+
+#### 1. Firebase Admin SDK (`src/lib/firebase-admin.ts`)
+- **Auth**: `verifyFirebaseToken()` — verify Firebase ID tokens server-side
+- **Firestore**: `setFirestoreDoc()`, `getFirestoreDoc()`, `queryFirestore()` — CRUD operations
+- **Storage**: `uploadToStorage()`, `deleteFromStorage()` — image upload/delete with public URLs
+- **FCM**: `sendPushNotification()`, `sendMulticastNotification()` — push to single/multiple devices
+- **Singleton pattern**: Uses `admin.apps` check to handle hot reload gracefully
+
+#### 2. Cloud Storage API (`/api/salon/storage`)
+- POST: Upload file (multipart form-data, max 5MB, JPEG/PNG/WebP/GIF)
+- DELETE: Remove file by path
+- **Status**: Bucket needs to be created in Firebase Console (Firebase → Build → Storage → Get Started)
+
+#### 3. Cloud Messaging API (`/api/salon/notifications`)
+- POST: Send notification with `{ token | tokens, title, body, data }`
+- Supports single device and multicast (multiple devices)
+- Android: High priority, default sound, custom channel
+- WebPush: Icon, badge, vibrate pattern
+
+#### 4. FCM Token Registration (`/api/salon/firebase-auth/register-token`)
+- POST: Register device token with `{ userId, userPhone, token, platform }`
+- GET: Get all tokens for a user by `?userId=xxx`
+- Tokens stored in Firestore `device_tokens` collection
+
+#### 5. Enhanced Login Flow
+- On login, app requests browser notification permission
+- If granted, generates FCM token via Firebase client SDK
+- Sends FCM token to `/api/salon/auth` alongside phone/role
+- Server registers token in Firestore for future push notifications
+
+### Security:
+- Service account key stored in `firebase-service-account.json` (gitignored)
+- Firebase Admin SDK used ONLY in server-side API routes
+- Client SDK has placeholder `vapidKey` (needs to be configured for web push)
+- File upload validates type (JPEG/PNG/WebP/GIF) and size (max 5MB)
+
+### API Test Results:
+| Endpoint | Method | Result |
+|----------|--------|--------|
+| `/api/salon/auth` | POST | ✅ 200 — Returns employee data, registers FCM token |
+| `/api/salon/storage` | POST | ⚠️ 500 — Storage bucket not yet created in Firebase Console |
+| `/api/salon/notifications` | POST | ✅ 400 — Correct validation (requires token) |
+| `/api/salon/firebase-auth/register-token` | POST | ✅ Ready (depends on Firestore) |
+
+### Remaining Setup (User needs to do in Firebase Console):
+1. **Enable Cloud Storage**: Build → Storage → Get Started → Start in Test Mode
+2. **Enable Phone Auth**: Build → Authentication → Sign-in method → Phone → Enable
+3. **Add Web App Config**: Project Settings → Add Web App → Get `firebaseConfig` (apiKey, appId, messagingSenderId)
+4. **Generate Web Push VAPID Key**: Project Settings → Cloud Messaging → Web Push certificates → Generate
+5. **Set environment variables**:
+   ```
+   NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+   NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+   ```
+
+### Lint: Zero errors
+### Dev server: Running on port 3000
+
