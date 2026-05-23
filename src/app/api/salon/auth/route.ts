@@ -1,6 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+interface EmployeeData {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  storeId: string;
+  storeName: string;
+  storeCity: string;
+}
+
+/**
+ * Try to authenticate via Firebase Firestore (works on Vercel / serverless)
+ */
+async function authenticateViaFirestore(
+  normalizedPhone: string,
+  allowedRoles: string[]
+): Promise<EmployeeData | null> {
+  try {
+    const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+    const firestore = getFirebaseAdmin().firestore();
+
+    // Lookup by phone number (doc ID = phone)
+    const doc = await firestore.collection('employees').doc(normalizedPhone).get();
+
+    if (!doc.exists) {
+      console.log(`[Auth] Firestore: no employee with phone ${normalizedPhone}`);
+      return null;
+    }
+
+    const data = doc.data()!;
+
+    // Check role matches
+    if (!allowedRoles.includes(data.role)) {
+      console.log(`[Auth] Firestore: role mismatch. Got ${data.role}, expected one of ${allowedRoles.join(',')}`);
+      return null;
+    }
+
+    // Check active
+    if (data.isActive === false) {
+      console.log(`[Auth] Firestore: employee ${data.name} is inactive`);
+      return null;
+    }
+
+    console.log(`[Auth] ✅ Firestore auth success: ${data.name} (${data.role})`);
+    return {
+      id: data.id || doc.id,
+      name: data.name,
+      phone: data.phone,
+      role: data.role,
+      storeId: data.storeId,
+      storeName: data.storeName || '',
+      storeCity: data.storeCity || '',
+    };
+  } catch (firestoreError) {
+    console.error('[Auth] Firestore lookup failed:', firestoreError);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -48,20 +107,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const employee = await db.employee.findFirst({
-      where: {
-        role: { in: allowedRoles },
-        phone: { endsWith: normalizedPhone },
-        isActive: true,
-      },
-      include: {
-        Store: {
-          select: { id: true, name: true, address: true, city: true },
-        },
-      },
-    });
+    // ── Strategy 1: Try SQLite (local dev) ──
+    let employee: {
+      id: string;
+      name: string;
+      phone: string;
+      role: string;
+      storeId: string;
+      Store?: { name: string; city: string } | null;
+    } | null = null;
 
-    if (!employee) {
+    try {
+      employee = await db.employee.findFirst({
+        where: {
+          role: { in: allowedRoles },
+          phone: { endsWith: normalizedPhone },
+          isActive: true,
+        },
+        include: {
+          Store: {
+            select: { id: true, name: true, address: true, city: true },
+          },
+        },
+      });
+    } catch (dbError) {
+      console.log('[Auth] SQLite not available, falling back to Firestore...');
+    }
+
+    // ── Strategy 2: Fallback to Firebase Firestore (Vercel / production) ──
+    let employeeData: EmployeeData | null = null;
+
+    if (employee) {
+      employeeData = {
+        id: employee.id,
+        name: employee.name,
+        phone: employee.phone,
+        role: employee.role,
+        storeId: employee.storeId,
+        storeName: employee.Store?.name || '',
+        storeCity: employee.Store?.city || '',
+      };
+    } else {
+      employeeData = await authenticateViaFirestore(normalizedPhone, allowedRoles);
+    }
+
+    if (!employeeData) {
       return NextResponse.json(
         { error: 'No account found. Please check your phone number and try again.' },
         { status: 404 }
@@ -72,16 +162,16 @@ export async function POST(request: NextRequest) {
     if (fcmToken) {
       try {
         const { setFirestoreDoc } = await import('@/lib/firebase-admin');
-        await setFirestoreDoc('device_tokens', `${employee.id}_${fcmToken.slice(-8)}`, {
-          userId: employee.id,
-          userPhone: employee.phone,
+        await setFirestoreDoc('device_tokens', `${employeeData.id}_${fcmToken.slice(-8)}`, {
+          userId: employeeData.id,
+          userPhone: employeeData.phone,
           token: fcmToken,
           platform: 'web',
-          name: employee.name,
-          role: employee.role,
+          name: employeeData.name,
+          role: employeeData.role,
           createdAt: new Date().toISOString(),
         });
-        console.log(`[Auth] FCM token registered for ${employee.name}`);
+        console.log(`[Auth] FCM token registered for ${employeeData.name}`);
       } catch (fcmError) {
         console.error('[Auth] FCM registration failed (non-blocking):', fcmError);
       }
@@ -89,15 +179,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      employee: {
-        id: employee.id,
-        name: employee.name,
-        phone: employee.phone,
-        role: employee.role,
-        storeId: employee.storeId,
-        storeName: employee.Store?.name || '',
-        storeCity: employee.Store?.city || '',
-      },
+      employee: employeeData,
     });
   } catch (error) {
     console.error('[Auth] Error:', error);
