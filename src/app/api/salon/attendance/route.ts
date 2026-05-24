@@ -6,11 +6,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const storeId = searchParams.get('storeId')
     const date = searchParams.get('date')
+    const employeeId = searchParams.get('employeeId')
 
     const attendance = await db.attendance.findMany({
       where: {
         ...(storeId ? { storeId } : {}),
         ...(date ? { date } : {}),
+        ...(employeeId ? { employeeId } : {}),
       },
       include: {
         employee: true,

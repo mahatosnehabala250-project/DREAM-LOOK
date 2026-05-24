@@ -1614,3 +1614,155 @@ Previous audit revealed 5 major gaps:
 ### What Still Doesn't Work on Vercel:
 - Analytics, Transactions, Appointments, Attendance, Inventory (need more Firestore seeding/queries)
 - These can be addressed incrementally in future sessions
+
+---
+
+## Attendance API employeeId Filter - 2025-05-21
+
+### Task: Add employeeId query parameter support to the attendance GET endpoint
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/api/salon/attendance/route.ts` | 2 lines added | Added `employeeId` query param extraction and Prisma where clause filter |
+
+### Changes Made:
+
+#### GET `/api/salon/attendance` (updated)
+- Added `employeeId` as an optional query parameter via `searchParams.get('employeeId')`
+- Added conditional spread in Prisma `where` clause: `...(employeeId ? { employeeId } : {})`
+- Existing `storeId` and `date` filters remain unchanged and functional
+- All three filters are composable (any combination works)
+
+### Updated API signature:
+```
+GET /api/salon/attendance?storeId=<id>&date=<YYYY-MM-DD>&employeeId=<id>
+```
+- All params optional
+- Returns attendance records filtered by provided params with employee and store includes
+
+---
+
+## Walk-In Queue API Route - 2026-05-23
+
+### Task: Add walk-in customer service queue management API
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/walkin/route.ts` | GET/POST/PATCH endpoint for walk-in service queue management |
+
+### API Details:
+
+**`GET /api/salon/walkin`**
+- Query params: `?storeId=`, `?date=YYYY-MM-DD`, `?status=` (defaults to `WALK_IN`)
+- Fetches appointments with WALK_IN status, includes employee, service, customer, store relations
+- Ordered by `createdAt asc` (first-come-first-served queue order)
+
+**`POST /api/salon/walkin`**
+- Request body: `{ storeId, employeeId, serviceId, customerName, customerPhone?, notes? }`
+- Validates required fields (storeId, employeeId, serviceId, customerName) → 400
+- Find-or-create customer by phone (creates placeholder customer with timestamp-based phone if no phone provided)
+- Creates appointment with `status: "WALK_IN"`, today's date, current time, notes prefixed with "Walk-in"
+- Returns created appointment with relations → 201
+
+**`PATCH /api/salon/walkin`**
+- Request body: `{ appointmentId, status }`
+- Validates status is one of: IN_PROGRESS, COMPLETED, CANCELLED → 400
+- Finds appointment by ID → 404 if not found
+- Updates appointment status and returns with relations
+
+### Technical Details:
+- Uses existing Appointment model with `status: "WALK_IN"` (no schema changes needed)
+- Imports: `NextRequest`/`NextResponse` from `next/server`, `db` from `@/lib/db`, `format` from `date-fns`
+- All handlers wrapped in try/catch with proper HTTP status codes (400, 404, 500)
+- Follows existing project API patterns (consistent with appointments, transactions, attendance routes)
+
+---
+
+## Cash Register API Route - 2026-05-23
+
+### Task: Create daily cash register management API endpoint
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/cash-register/route.ts` | GET + POST endpoints for daily cash register tracking |
+
+### API Endpoints:
+
+#### GET `/api/salon/cash-register?branchId=STORE_ID&date=YYYY-MM-DD`
+Returns comprehensive cash register summary for a branch on a given date.
+
+**Data Sources (4 queries):**
+1. `db.dayClose.findUnique()` — Existing DayClose record (if day was previously closed/locked)
+2. `db.transaction.findMany()` — All transactions for the branch on the date (completedAt range)
+3. `db.expense.findMany()` — All expenses for the branch on the date
+4. `db.payment.findMany()` — All CASH payments to staff on the date
+
+**Response fields:**
+```json
+{
+  "date": "2026-05-23",
+  "branchId": "...",
+  "totalRevenue": 5000,
+  "totalCash": 3500,
+  "totalOnline": 1500,
+  "totalServices": 10,
+  "totalExpenses": 500,
+  "totalPayments": 2000,
+  "isClosed": false,
+  "closedBy": null,
+  "closedAt": null,
+  "expectedCash": 1000
+}
+```
+
+**Calculations:**
+- `totalCash` = sum of `transaction.cashAmount` across all transactions (handles CASH and SPLIT payment methods)
+- `totalOnline` = sum of `transaction.onlineAmount` across all transactions (handles ONLINE and SPLIT)
+- `totalRevenue` = sum of `transaction.servicePrice`
+- `totalExpenses` = sum of `expense.amount`
+- `totalPayments` = sum of `payment.netPaid` where `paymentMethod === 'CASH'`
+- `expectedCash` = `totalCash - totalExpenses - totalPayments`
+
+#### POST `/api/salon/cash-register` — Open/Save (close) cash register
+
+**Request body:**
+```json
+{
+  "branchId": "string",
+  "date": "YYYY-MM-DD",
+  "openingBalance": 5000,
+  "closingBalance": 3000,
+  "closedBy": "employee-id"
+}
+```
+
+**Logic:**
+1. Validates required fields (`branchId`, `date`, `closedBy`)
+2. Recalculates all totals from live transaction/expense/payment data (server-side calculation, not client-provided)
+3. Checks if DayClose already exists and is locked → returns 400 if already closed
+4. Determines close vs open: `isClosing = typeof closingBalance === 'number'`
+5. Upserts DayClose record via `db.dayClose.upsert()` using `branchId_date` compound unique key
+6. Creates audit log entry (`CASH_REGISTER_OPENED` or `CASH_REGISTER_CLOSED`)
+7. Returns upserted DayClose with `openingBalance`/`closingBalance` appended (status 201)
+
+**Business Rules:**
+- `isLocked = true` only when `closingBalance` is provided (actual close operation)
+- `closedAt` only set when closing (non-nullable DateTime field in schema)
+- Already-locked registers are protected (400 error)
+- Totals always recalculated server-side from live data
+
+### Technical Details:
+- Uses existing DayClose model with `@@unique([branchId, date])` compound key for upsert
+- Uses existing AuditLog model for audit trail
+- Uses existing Transaction model with `cashAmount`/`onlineAmount` fields for payment split handling
+- Imports: `NextRequest`/`NextResponse` from `next/server`, `db` from `@/lib/db`
+- All handlers wrapped in try/catch with proper HTTP status codes (400, 500)
+- Follows existing project API patterns (consistent with day-close, transactions, expenses routes)
+
+### Verification:
+- ✅ TypeScript: Zero errors in cash-register/route.ts
+- ✅ ESLint: Zero errors
+- ✅ Prisma client regenerated (`npx prisma generate`) — was stale before this task

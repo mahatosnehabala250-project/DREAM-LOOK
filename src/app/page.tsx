@@ -17,7 +17,7 @@ import {
   Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote,
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
   Wrench, Mail, Medal, Settings, UserCircle, HelpCircle,
-  MessageSquare, ExternalLink, LifeBuoy, Info, Trash2, Pencil,
+  MessageSquare, ExternalLink, LifeBuoy, Info, Trash2, Pencil, Save,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ import {
   Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, addMonths,
+  format, isBefore, isToday, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, addMonths, formatDistanceToNow,
 } from 'date-fns';
 
 // ─── TYPES ───────────────────────────────────────────────────────
@@ -2460,6 +2460,43 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
     return (monthTransactions || []).reduce((s, t) => s + t.employeeNetShare, 0);
   }, [monthTransactions]);
 
+  // ─── Employee Self Attendance ────────────────────────────
+  const { data: myAttendance, refetch: refetchMyAtt } = useFetch<AttendanceRecord[]>(
+    activeEmployeeId ? `/api/salon/attendance?employeeId=${activeEmployeeId}&date=${today}` : null
+  );
+  const myTodayAtt = (myAttendance || [])[0] || null;
+  const isCheckedIn = !!myTodayAtt?.checkIn;
+  const isCheckedOut = !!myTodayAtt?.checkOut;
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  const handleSelfCheckIn = useCallback(async () => {
+    if (!activeEmployeeId || !authUser) return;
+    setCheckingIn(true);
+    try {
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      await apiPost('/api/salon/attendance', { employeeId: activeEmployeeId, storeId: authUser.storeId, date: today, checkIn: timeStr, status: 'PRESENT', markedBy: activeEmployeeId });
+      toast.success('Checked in successfully! ✅');
+      refetchMyAtt();
+    } catch (e) {
+      toast.error('Check-in failed', { description: (e as Error).message });
+    } finally { setCheckingIn(false); }
+  }, [activeEmployeeId, authUser, today, refetchMyAtt]);
+
+  const handleSelfCheckOut = useCallback(async () => {
+    if (!activeEmployeeId || !authUser) return;
+    setCheckingIn(true);
+    try {
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      await apiPost('/api/salon/attendance', { employeeId: activeEmployeeId, storeId: authUser.storeId, date: today, checkOut: timeStr, markedBy: activeEmployeeId });
+      toast.success('Checked out successfully! Goodbye 👋');
+      refetchMyAtt();
+    } catch (e) {
+      toast.error('Check-out failed', { description: (e as Error).message });
+    } finally { setCheckingIn(false); }
+  }, [activeEmployeeId, authUser, today, refetchMyAtt]);
+
   const animatedToday = useAnimatedNumber(todayEarnings.net);
   const animatedWeek = useAnimatedNumber(weekEarnings);
   const animatedMonth = useAnimatedNumber(monthEarnings);
@@ -2513,6 +2550,50 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
           </Select>
         )}
       </div>
+
+      {/* ─── SELF CHECK-IN / CHECK-OUT CARD ───────────────── */}
+      {authUser && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Card className={`shadow-md overflow-hidden border-2 ${!isCheckedIn ? 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-background' : isCheckedIn && !isCheckedOut ? 'border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-background' : 'border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900/20 dark:to-background'}`}>
+            <CardContent className="p-5">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${!isCheckedIn ? 'bg-emerald-100 dark:bg-emerald-900/40' : isCheckedIn && !isCheckedOut ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                  {!isCheckedIn ? <LogIn className="w-8 h-8 text-emerald-600 dark:text-emerald-400" /> : isCheckedIn && !isCheckedOut ? <Timer className="w-8 h-8 text-amber-600 dark:text-amber-400" /> : <CheckCircle2 className="w-8 h-8 text-gray-500 dark:text-gray-400" />}
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <h3 className="text-base font-bold">
+                    {!isCheckedIn ? 'You have not checked in yet' : isCheckedIn && !isCheckedOut ? 'You are currently working' : 'Day completed!'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {!isCheckedIn ? `Tap "Check In" to mark your attendance for today (${format(new Date(), 'EEEE, MMM d')})` :
+                      isCheckedIn && !isCheckedOut ? `Checked in at ${myTodayAtt?.checkIn} · ${formatDistanceToNow(new Date(`${today}T${myTodayAtt?.checkIn}:00`), { addSuffix: true })}` :
+                      `In: ${myTodayAtt?.checkIn} → Out: ${myTodayAtt?.checkOut}`}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  {!isCheckedIn && (
+                    <Button size="lg" onClick={handleSelfCheckIn} disabled={checkingIn}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-8 h-12 text-base shadow-lg shadow-emerald-500/20">
+                      {checkingIn ? <RefreshCw className="w-5 h-5 animate-spin" /> : <><LogIn className="w-5 h-5 mr-2" /> Check In</>}
+                    </Button>
+                  )}
+                  {isCheckedIn && !isCheckedOut && (
+                    <Button size="lg" onClick={handleSelfCheckOut} disabled={checkingIn}
+                      className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 h-12 text-base shadow-lg shadow-amber-500/20">
+                      {checkingIn ? <RefreshCw className="w-5 h-5 animate-spin" /> : <><LogOut className="w-5 h-5 mr-2" /> Check Out</>}
+                    </Button>
+                  )}
+                  {isCheckedOut && (
+                    <Badge variant="secondary" className="text-sm px-4 py-2 bg-gray-100 dark:bg-gray-800">
+                      <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-500" /> Day Done
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Quick Stats */}
       <QuickStatsCard todayTransactions={todayTransactions || []} weekTransactions={weekTransactions || []} />
@@ -2714,6 +2795,11 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
       {/* ─── COMMISSION PREVIEW ─────────────────────────────── */}
       {authUser && (
         <CommissionPreviewSection employeeId={authUser.id} branchId={authUser.storeId} />
+      )}
+
+      {/* ─── MY ATTENDANCE HISTORY ─────────────────────────── */}
+      {authUser && (
+        <MyAttendanceHistory employeeId={authUser.id} branchId={authUser.storeId} />
       )}
     </div>
   );
@@ -2960,6 +3046,152 @@ function CommissionPreviewSection({ employeeId, branchId }: { employeeId: string
               );
             })}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MY ATTENDANCE HISTORY (Employee)
+// ═══════════════════════════════════════════════════════════════════
+function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; branchId: string }) {
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+  const monthStart = format(new Date(selectedMonth + '-01'), 'yyyy-MM-dd');
+  const monthEndDate = new Date(new Date(selectedMonth + '-01').getFullYear(), new Date(selectedMonth + '-01').getMonth() + 1, 0);
+  const monthEnd = format(monthEndDate, 'yyyy-MM-dd');
+
+  const { data: attendance, loading } = useFetch<AttendanceRecord[]>(
+    `/api/salon/attendance?employeeId=${employeeId}&storeId=${branchId}`
+  );
+  const monthAttendance = useMemo(() => {
+    return (attendance || []).filter(a => a.date >= monthStart && a.date <= monthEnd);
+  }, [attendance, monthStart, monthEnd]);
+
+  const stats = useMemo(() => {
+    const daysInMonth = monthEndDate.getDate();
+    const present = monthAttendance.filter(a => a.status === 'PRESENT').length;
+    const halfDay = monthAttendance.filter(a => a.status === 'HALF_DAY').length;
+    const absent = monthAttendance.filter(a => a.status === 'ABSENT').length;
+    const totalHours = monthAttendance.reduce((s, a) => {
+      if (a.checkIn && a.checkOut) {
+        const [h1, m1] = a.checkIn.split(':').map(Number);
+        const [h2, m2] = a.checkOut.split(':').map(Number);
+        return s + (h2 - h1) + (m2 - m1) / 60;
+      }
+      return s;
+    }, 0);
+    return { daysInMonth, present, halfDay, absent, totalHours: Math.round(totalHours * 10) / 10, recorded: monthAttendance.length };
+  }, [monthAttendance, monthEndDate]);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(selectedMonth + '-01').getDay();
+    const daysInMonth = monthEndDate.getDate();
+    const days: Array<{ date: string; day: number; att?: AttendanceRecord }> = [];
+    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+      days.push({ date: '', day: 0 });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+      const att = monthAttendance.find(a => a.date === dateStr);
+      days.push({ date: dateStr, day: d, att });
+    }
+    return days;
+  }, [selectedMonth, monthAttendance, monthEndDate]);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-500" />
+            <CardTitle className="text-base">My Attendance</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+              className="h-8 w-36 text-xs" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 rounded" />)}</div>
+        ) : (
+          <>
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+              <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{stats.present}</p>
+                <p className="text-[10px] text-muted-foreground">Present</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{stats.halfDay}</p>
+                <p className="text-[10px] text-muted-foreground">Half Day</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20">
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">{stats.absent}</p>
+                <p className="text-[10px] text-muted-foreground">Absent</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.totalHours}h</p>
+                <p className="text-[10px] text-muted-foreground">Total Hours</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-violet-50 dark:bg-violet-900/20">
+                <p className="text-lg font-bold text-violet-600 dark:text-violet-400">{stats.recorded}/{stats.daysInMonth}</p>
+                <p className="text-[10px] text-muted-foreground">Recorded</p>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                <div key={d} className="text-[10px] font-medium text-muted-foreground py-1">{d}</div>
+              ))}
+              {calendarDays.map((day, i) => (
+                <div key={i} className={`relative w-full aspect-square flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${!day.date ? '' :
+                  day.att?.status === 'PRESENT' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                  day.att?.status === 'HALF_DAY' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' :
+                  day.att?.status === 'ABSENT' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' :
+                  isToday(new Date(day.date)) ? 'ring-2 ring-rose-400' :
+                  'bg-muted/30 dark:bg-muted/10'
+                }`}>
+                  {day.day > 0 ? day.day : ''}
+                  {day.att?.checkIn && (
+                    <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700" /> Present</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700" /> Half Day</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700" /> Absent</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-muted/30 border border-muted-300" /> Not Recorded</span>
+            </div>
+
+            {/* Recent Records */}
+            {monthAttendance.length > 0 && (
+              <div className="mt-4 border-t pt-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Recent Records</p>
+                <ScrollArea className="max-h-32">
+                  <div className="space-y-1.5 pr-2">
+                    {monthAttendance.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7).map(rec => (
+                      <div key={rec.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-muted/30">
+                        <span className="font-medium">{format(new Date(rec.date), 'EEE, MMM d')}</span>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          {rec.checkIn && <span className="text-emerald-600 dark:text-emerald-400">In {rec.checkIn}</span>}
+                          {rec.checkOut && <span className="text-red-500 dark:text-red-400">Out {rec.checkOut}</span>}
+                          {!rec.checkOut && rec.checkIn && <Badge variant="outline" className="text-[9px] h-4 px-1.5">Working</Badge>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -3937,10 +4169,12 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
   const managerSections = [
     { id: 'mgr-overview', label: 'Overview' },
     { id: 'mgr-appointments', label: 'Appointments' },
+    { id: 'mgr-walkin', label: 'Walk-in Queue' },
     { id: 'mgr-staff', label: 'Staff' },
     { id: 'mgr-inventory', label: 'Inventory' },
     { id: 'mgr-customers', label: 'Customers' },
     { id: 'mgr-expenses', label: 'Expenses' },
+    { id: 'mgr-cash-register', label: 'Cash Register' },
     { id: 'mgr-day-close', label: 'Day Close' },
   ];
   const activeManagerSection = useActiveSection(managerSections.map(s => s.id));
@@ -4190,6 +4424,11 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
       />
       </div>{/* end mgr-inventory */}
 
+      {/* ─── WALK-IN QUEUE ───────────────────────────────────── */}
+      <div id="mgr-walkin" className="scroll-mt-36">
+      <ManagerWalkInQueueSection storeId={activeStoreId} authUser={authUser} />
+      </div>
+
       {/* ─── CUSTOMER MANAGEMENT ─────────────────────────────── */}
       <div id="mgr-customers" className="scroll-mt-36">
       <ManagerCustomerSection storeId={activeStoreId} />
@@ -4207,6 +4446,11 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
       {/* ─── EXPENSES ────────────────────────────────────────── */}
       <div id="mgr-expenses" className="scroll-mt-36">
       <ManagerExpenseSection storeId={activeStoreId} />
+      </div>
+
+      {/* ─── CASH REGISTER ──────────────────────────────────── */}
+      <div id="mgr-cash-register" className="scroll-mt-36">
+      <ManagerCashRegisterSection storeId={activeStoreId} authUser={authUser} />
       </div>
 
       {/* ─── DAY CLOSE BUTTON ────────────────────────────────── */}
@@ -4520,6 +4764,376 @@ function ManagerDailyPaymentSection({ storeId, authUser }: { storeId: string; au
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER WALK-IN QUEUE
+// ═══════════════════════════════════════════════════════════════════
+function ManagerWalkInQueueSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: walkins, loading, refetch } = useFetch<Appointment[]>(
+    storeId ? `/api/salon/walkin?storeId=${storeId}&date=${today}` : null
+  );
+  const { data: employees } = useFetch<Employee[]>(storeId ? `/api/salon/employees?storeId=${storeId}` : null);
+  const { data: services } = useFetch<Service[]>('/api/salon/services');
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [walkinForm, setWalkinForm] = useState({ customerName: '', customerPhone: '', employeeId: '', serviceId: '', notes: '' });
+  const [submitting, setSubmitting] = useState(false);
+
+  const stylistEmployees = useMemo(() => (employees || []).filter(e => e.role === 'STYLIST' && e.isActive), [employees]);
+  const waiting = (walkins || []).filter(w => w.status === 'WALK_IN');
+  const inProgress = (walkins || []).filter(w => w.status === 'IN_PROGRESS');
+  const completed = (walkins || []).filter(w => w.status === 'COMPLETED');
+
+  const handleAddWalkin = useCallback(async () => {
+    if (!walkinForm.customerName || !walkinForm.employeeId || !walkinForm.serviceId) {
+      toast.error('Please fill customer name, stylist, and service');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiPost('/api/salon/walkin', {
+        storeId, employeeId: walkinForm.employeeId, serviceId: walkinForm.serviceId,
+        customerName: walkinForm.customerName, customerPhone: walkinForm.customerPhone || undefined,
+        notes: walkinForm.notes || undefined,
+      });
+      toast.success('Walk-in added to queue');
+      setWalkinForm({ customerName: '', customerPhone: '', employeeId: '', serviceId: '', notes: '' });
+      setDialogOpen(false);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to add walk-in', { description: (e as Error).message });
+    } finally { setSubmitting(false); }
+  }, [storeId, walkinForm, refetch]);
+
+  const handleUpdateStatus = useCallback(async (appointmentId: string, status: string) => {
+    try {
+      await apiPatch('/api/salon/walkin', { appointmentId, status });
+      toast.success(`Walk-in ${status === 'IN_PROGRESS' ? 'started' : status === 'COMPLETED' ? 'completed' : 'cancelled'}`);
+      refetch();
+    } catch (e) {
+      toast.error('Failed to update', { description: (e as Error).message });
+    }
+  }, [refetch]);
+
+  return (
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <CardTitle className="text-base">Walk-in Queue</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              {waiting.length > 0 && <Badge className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">{waiting.length} waiting</Badge>}
+              {inProgress.length > 0 && <Badge className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">{inProgress.length} in progress</Badge>}
+              <Button size="sm" onClick={() => setDialogOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-xs h-8">
+                <UserPlus className="w-3.5 h-3.5 mr-1" /> Add Walk-in
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+          ) : !walkins?.length ? (
+            <EmptyState icon={Users} title="No walk-ins today" description="Add walk-in customers who arrive without appointments" />
+          ) : (
+            <div className="space-y-4">
+              {/* Waiting */}
+              {waiting.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-2 uppercase tracking-wide">Waiting ({waiting.length})</p>
+                  <div className="space-y-2">
+                    {waiting.map((w, i) => (
+                      <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10">
+                        <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300">#{i + 1}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{w.customer?.name || 'Customer'}</p>
+                          <p className="text-xs text-muted-foreground">{w.service?.name} · {w.employee?.name} · {w.time}</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button size="sm" className="h-7 text-xs px-2 bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleUpdateStatus(w.id, 'IN_PROGRESS')}>
+                            <Play className="w-3 h-3 mr-0.5" /> Start
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-red-500" onClick={() => handleUpdateStatus(w.id, 'CANCELLED')}>
+                            <XCircle className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* In Progress */}
+              {inProgress.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wide">In Progress ({inProgress.length})</p>
+                  <div className="space-y-2">
+                    {inProgress.map(w => (
+                      <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10">
+                        <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                          <Timer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{w.customer?.name || 'Customer'}</p>
+                          <p className="text-xs text-muted-foreground">{w.service?.name} · {w.employee?.name}</p>
+                        </div>
+                        <Button size="sm" className="h-7 text-xs px-2 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => handleUpdateStatus(w.id, 'COMPLETED')}>
+                          <CheckCircle2 className="w-3 h-3 mr-0.5" /> Done
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Completed */}
+              {completed.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-2 uppercase tracking-wide">Completed ({completed.length})</p>
+                  <div className="space-y-1.5">
+                    {completed.map(w => (
+                      <div key={w.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <p className="text-xs flex-1">{w.customer?.name} — {w.service?.name} by {w.employee?.name}</p>
+                        <span className="text-[10px] text-muted-foreground">{formatCurrency(w.service?.price || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Walk-in Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5 text-amber-500" /> Add Walk-in Customer</DialogTitle>
+            <DialogDescription>Add a customer who arrived without an appointment</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Customer Name *</Label>
+                <Input value={walkinForm.customerName} onChange={e => setWalkinForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Enter name" className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Phone</Label>
+                <Input value={walkinForm.customerPhone} onChange={e => setWalkinForm(f => ({ ...f, customerPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="Phone (optional)" className="h-9" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Stylist *</Label>
+                <Select value={walkinForm.employeeId} onValueChange={v => setWalkinForm(f => ({ ...f, employeeId: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select stylist" /></SelectTrigger>
+                  <SelectContent>
+                    {stylistEmployees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Service *</Label>
+                <Select value={walkinForm.serviceId} onValueChange={v => setWalkinForm(f => ({ ...f, serviceId: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select service" /></SelectTrigger>
+                  <SelectContent>
+                    {(services || []).filter(s => s.isActive).map(svc => <SelectItem key={svc.id} value={svc.id}>{svc.name} ({formatCurrency(svc.price)})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Notes (optional)</Label>
+              <Input value={walkinForm.notes} onChange={e => setWalkinForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any special requests..." className="h-9" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="text-xs">Cancel</Button>
+            <Button onClick={handleAddWalkin} disabled={submitting || !walkinForm.customerName || !walkinForm.employeeId || !walkinForm.serviceId}
+              className="bg-amber-500 hover:bg-amber-600 text-xs">
+              {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Add to Queue'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER CASH REGISTER
+// ═══════════════════════════════════════════════════════════════════
+function ManagerCashRegisterSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: cashData, refetch, loading } = useFetch<any>(
+    storeId ? `/api/salon/cash-register?branchId=${storeId}&date=${today}` : null
+  );
+  const [openingBalance, setOpeningBalance] = useState(0);
+  const [closingBalance, setClosingBalance] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [showClose, setShowClose] = useState(false);
+
+  const handleSaveRegister = useCallback(async () => {
+    if (!storeId) return;
+    setSaving(true);
+    try {
+      await apiPost('/api/salon/cash-register', {
+        branchId: storeId, date: today,
+        openingBalance, closingBalance: showClose ? closingBalance : undefined,
+        closedBy: authUser?.id || '',
+      });
+      toast.success(showClose ? 'Cash register closed for the day' : 'Opening balance saved');
+      refetch();
+    } catch (e) {
+      toast.error('Failed to save', { description: (e as Error).message });
+    } finally { setSaving(false); }
+  }, [storeId, today, openingBalance, closingBalance, showClose, authUser?.id, refetch]);
+
+  const cashVariance = showClose ? (closingBalance - (cashData?.expectedCash || 0) - openingBalance) : 0;
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-emerald-500" />
+            <CardTitle className="text-base">Daily Cash Register</CardTitle>
+          </div>
+          <Badge variant="secondary">{format(new Date(), 'MMM d, yyyy')}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}</div>
+        ) : (
+          <div className="space-y-4">
+            {/* Opening Balance */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <p className="text-sm font-medium">Opening Balance</p>
+                  <p className="text-[10px] text-muted-foreground">Cash in drawer at start of day</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">₹</span>
+                <Input type="number" value={openingBalance || ''} onChange={e => setOpeningBalance(Number(e.target.value) || 0)}
+                  className="w-28 h-8 text-right text-sm font-semibold" placeholder="0" />
+              </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="text-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40">
+                <Banknote className="w-4 h-4 mx-auto mb-1 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(cashData?.totalCash || 0)}</p>
+                <p className="text-[10px] text-muted-foreground">Cash Collections</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40">
+                <Receipt className="w-4 h-4 mx-auto mb-1 text-red-500" />
+                <p className="text-base font-bold text-red-600 dark:text-red-400">-{formatCurrency(cashData?.totalExpenses || 0)}</p>
+                <p className="text-[10px] text-muted-foreground">Cash Expenses</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-900/40">
+                <HandCoins className="w-4 h-4 mx-auto mb-1 text-violet-500" />
+                <p className="text-base font-bold text-violet-600 dark:text-violet-400">-{formatCurrency(cashData?.totalPayments || 0)}</p>
+                <p className="text-[10px] text-muted-foreground">Staff Payments</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+                <CreditCard className="w-4 h-4 mx-auto mb-1 text-blue-500" />
+                <p className="text-base font-bold text-blue-600 dark:text-blue-400">{formatCurrency(cashData?.totalOnline || 0)}</p>
+                <p className="text-[10px] text-muted-foreground">Online Collections</p>
+              </div>
+            </div>
+
+            {/* Expected Cash */}
+            <div className="p-3 rounded-xl bg-muted/50 border">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Expected Cash in Drawer</p>
+                <p className="text-base font-bold">{formatCurrency(openingBalance + (cashData?.expectedCash || 0))}</p>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Opening ({formatCurrency(openingBalance)}) + Collections ({formatCurrency(cashData?.totalCash || 0)}) - Expenses ({formatCurrency(cashData?.totalExpenses || 0)}) - Payments ({formatCurrency(cashData?.totalPayments || 0)})
+              </p>
+            </div>
+
+            {/* Close Register */}
+            {showClose && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                  <div>
+                    <p className="text-sm font-medium">Actual Cash in Drawer</p>
+                    <p className="text-[10px] text-muted-foreground">Count and enter the actual cash</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">₹</span>
+                    <Input type="number" value={closingBalance || ''} onChange={e => setClosingBalance(Number(e.target.value) || 0)}
+                      className="w-28 h-8 text-right text-sm font-semibold" placeholder="0" autoFocus />
+                  </div>
+                </div>
+                {/* Variance */}
+                {closingBalance > 0 && (
+                  <div className={`mt-2 p-3 rounded-xl border ${Math.abs(cashVariance) < 1 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="text-sm font-medium">{Math.abs(cashVariance) < 1 ? '✅ Cash matches!' : '⚠️ Cash variance detected'}</p>
+                    <p className={`text-xs mt-0.5 ${Math.abs(cashVariance) < 1 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      Variance: {cashVariance >= 0 ? '+' : ''}{formatCurrency(cashVariance)}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button onClick={handleSaveRegister} disabled={saving} variant="outline" className="flex-1 text-xs h-9">
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4 mr-1" /> Save Opening Balance</>}
+              </Button>
+              {!cashData?.isClosed && (
+                <Button onClick={() => setShowClose(!showClose)} variant="outline" className={`flex-1 text-xs h-9 ${showClose ? 'border-red-300 text-red-500' : ''}`}>
+                  <Lock className="w-4 h-4 mr-1" /> {showClose ? 'Cancel Close' : 'Close Register'}
+                </Button>
+              )}
+              {showClose && (
+                <Button onClick={handleSaveRegister} disabled={saving || closingBalance === 0}
+                  className="flex-1 text-xs h-9 bg-emerald-500 hover:bg-emerald-600 text-white">
+                  {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Confirm Close'}
+                </Button>
+              )}
+              {cashData?.isClosed && (
+                <Badge className="flex-1 justify-center h-9 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs">
+                  <Lock className="w-3.5 h-3.5 mr-1" /> Register Closed by {(cashData as any)?.closedBy || 'Manager'}
+                </Badge>
+              )}
+            </div>
+
+            {/* Total Revenue Summary */}
+            <div className="border-t pt-3">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-lg font-bold">{formatCurrency(cashData?.totalRevenue || 0)}</p>
+                  <p className="text-[10px] text-muted-foreground">Total Revenue</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{cashData?.totalServices || 0}</p>
+                  <p className="text-[10px] text-muted-foreground">Services Done</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency((cashData?.totalCash || 0) + (cashData?.totalOnline || 0))}</p>
+                  <p className="text-[10px] text-muted-foreground">Total Collected</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
