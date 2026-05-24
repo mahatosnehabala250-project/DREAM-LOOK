@@ -23,11 +23,28 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(attendance)
   } catch (error) {
-    console.error('Error fetching attendance:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch attendance' },
-      { status: 500 }
-    )
+    console.log('[Attendance] SQLite not available, falling back to Firestore...');
+    try {
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+      const { searchParams } = new URL(request.url);
+      const storeId = searchParams.get('storeId');
+      
+      let query: any = getFirebaseAdmin().firestore().collection('attendance');
+      if (storeId) {
+        query = query.where('storeId', '==', storeId);
+      }
+      
+      const snapshot = await query.get();
+      const attendance = snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...doc.data(),
+        employee: { name: doc.data().employeeName || 'Unknown Staff', role: doc.data().employeeRole || 'STAFF' }
+      }));
+      return NextResponse.json(attendance);
+    } catch (firebaseError) {
+      console.error('Error fetching attendance from Firebase:', firebaseError);
+      return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 });
+    }
   }
 }
 
