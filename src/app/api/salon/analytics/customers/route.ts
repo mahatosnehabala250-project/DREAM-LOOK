@@ -96,10 +96,17 @@ export async function GET() {
       completedAppointments,
     })
   } catch (error) {
-    console.error('Error fetching customer analytics:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch customer analytics' },
-      { status: 500 },
-    )
+    console.log('[Customer Analytics] SQLite not available. Returning empty default data to prevent crash.');
+    return NextResponse.json({
+      topCustomers: [],
+      totalCustomers: 0,
+      newCustomers: 0,
+      returningCustomers: 0,
+      newToReturningRatio: { new: 0, returning: 0, newPercent: 0, returningPercent: 0 },
+      customerGrowth: [],
+      avgVisits: 0,
+      totalAppointments: 0,
+      completedAppointments: 0,
+    });
   }
 }

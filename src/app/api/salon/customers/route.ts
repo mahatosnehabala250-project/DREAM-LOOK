@@ -8,11 +8,22 @@ export async function GET() {
     })
     return NextResponse.json(customers)
   } catch (error) {
-    console.error('Error fetching customers:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch customers' },
-      { status: 500 }
-    )
+    console.log('[Customers] SQLite not available, falling back to Firestore...');
+    try {
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+      const snapshot = await getFirebaseAdmin().firestore().collection('customers').get();
+      const customers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      return NextResponse.json(customers);
+    } catch (firebaseError) {
+      console.error('Error fetching customers from Firebase:', firebaseError);
+      return NextResponse.json(
+        { error: 'Failed to fetch customers' },
+        { status: 500 }
+      );
+    }
   }
 }
 

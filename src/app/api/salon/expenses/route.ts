@@ -25,11 +25,30 @@ export async function GET(request: NextRequest) {
     })
     return NextResponse.json(expenses)
   } catch (error) {
-    console.error('Error fetching expenses:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch expenses' },
-      { status: 500 }
-    )
+    console.log('[Expenses] SQLite not available, falling back to Firestore...');
+    try {
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+      const { searchParams } = new URL(request.url);
+      const storeId = searchParams.get('storeId');
+      
+      let query: any = getFirebaseAdmin().firestore().collection('expenses');
+      if (storeId) {
+        query = query.where('storeId', '==', storeId);
+      }
+      
+      const snapshot = await query.get();
+      const expenses = snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      return NextResponse.json(expenses);
+    } catch (firebaseError) {
+      console.error('Error fetching expenses from Firebase:', firebaseError);
+      return NextResponse.json(
+        { error: 'Failed to fetch expenses' },
+        { status: 500 }
+      );
+    }
   }
 }
 
