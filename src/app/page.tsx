@@ -17,7 +17,7 @@ import {
   Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote,
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
   Wrench, Mail, Medal, Settings, UserCircle, HelpCircle,
-  MessageSquare, ExternalLink, LifeBuoy, Info,
+  MessageSquare, ExternalLink, LifeBuoy, Info, Trash2, Pencil,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
