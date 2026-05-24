@@ -1766,3 +1766,91 @@ Returns comprehensive cash register summary for a branch on a given date.
 - ✅ TypeScript: Zero errors in cash-register/route.ts
 - ✅ ESLint: Zero errors
 - ✅ Prisma client regenerated (`npx prisma generate`) — was stale before this task
+---
+
+## Real-World Operational Features - 2026-05-24
+
+### Task: Add critical real-world salon management features that were missing
+
+### User Request
+"bhat sara feature actually real world ke liye add nhi kiye ho chek, like entry karne ka manager, employee ka" — The user pointed out that the app lacks essential real-world operational features like manager/employee check-in.
+
+### Files Created (2):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/walkin/route.ts` | Walk-in queue management API (GET/POST/PATCH) |
+| `src/app/api/salon/cash-register/route.ts` | Daily cash register API (GET/POST) |
+
+### Files Modified (2):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/api/salon/attendance/route.ts` | +2 lines | Added `employeeId` query parameter filter to GET handler |
+| `src/app/page.tsx` | 7069 → 7683 lines (+614 lines) | 4 new major feature components + manager nav updates |
+
+### New Features Implemented (4):
+
+#### 1. Employee Self Check-In/Check-Out (`EmployeeView`)
+- **Prominent card** at top of Employee dashboard (visible only when authenticated)
+- **3-state system**: Not checked in (green) → Working (amber) → Day completed (gray)
+- **Large Check In/Check Out buttons** with loading spinners
+- **Live time tracking**: Shows check-in time + duration using `formatDistanceToNow`
+- **Auto-stores** `markedBy` = employee's own ID (self-service, not manager-initiated)
+- Uses existing `/api/salon/attendance` POST endpoint with `employeeId` filter on GET
+
+#### 2. Employee Attendance History (`MyAttendanceHistory` component)
+- **Monthly calendar grid** with Monday-start week layout
+- **Color-coded days**: Green (Present), Amber (Half Day), Red (Absent), Gray (Not Recorded)
+- **Month selector** input for browsing different months
+- **5 stat cards**: Present days, Half days, Absent days, Total hours, Recorded/Total
+- **Recent records list**: Shows last 7 attendance entries with check-in/out times
+- Fetches attendance via `/api/salon/attendance?employeeId=X&storeId=Y`
+
+#### 3. Walk-in Service Queue (`ManagerWalkInQueueSection`)
+- **Full queue management** for customers who arrive without appointments
+- **Add Walk-in dialog**: Customer name, phone (optional), stylist dropdown, service dropdown, notes
+- **3-section display**: Waiting (numbered, amber border) → In Progress (blue, timer icon) → Completed (green, checkmark)
+- **Status actions**: Start (blue button), Done (green button), Cancel (red X button)
+- **Badge counts**: "3 waiting" and "2 in progress" badges in header
+- **New nav tab**: "Walk-in Queue" added to Manager section navigation
+- Uses existing Appointment model with `status: "WALK_IN"` — no schema changes needed
+
+#### 4. Daily Cash Register (`ManagerCashRegisterSection`)
+- **Opening balance**: Input field for starting cash in drawer
+- **4 summary cards**: Cash Collections (+green), Cash Expenses (-red), Staff Payments (-violet), Online Collections (blue)
+- **Expected cash calculation**: Opening + Collections - Expenses - Payments
+- **Close register flow**: Enter actual cash → Shows variance (✅ match or ⚠️ variance)
+- **Actions**: Save Opening Balance, Close Register, Confirm Close
+- **Closed state**: Shows "Register Closed" badge when locked
+- **Total revenue summary**: Revenue, Services Done, Total Collected
+- **New nav tab**: "Cash Register" added to Manager section navigation
+- Server-side calculation prevents tampering (all totals recalculated from live data)
+
+### New API Endpoints (3):
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/salon/attendance?employeeId=X&date=Y&storeId=Z` | Updated: now supports `employeeId` filter |
+| GET | `/api/salon/walkin?storeId=&date=&status=WALK_IN` | Fetch walk-in queue (FCFS order) |
+| POST | `/api/salon/walkin` | Add walk-in (find-or-create customer, create appointment with WALK_IN status) |
+| PATCH | `/api/salon/walkin` | Update walk-in status (IN_PROGRESS, COMPLETED, CANCELLED) |
+| GET | `/api/salon/cash-register?branchId=&date=` | Get cash register summary (collections, expenses, payments, expected cash) |
+| POST | `/api/salon/cash-register` | Save opening/closing balance, creates audit log |
+
+### Manager Section Navigation (Updated):
+| # | Section | ID |
+|---|---------|----|
+| 1 | Overview | mgr-overview |
+| 2 | Appointments | mgr-appointments |
+| 3 | **Walk-in Queue** | mgr-walkin (NEW) |
+| 4 | Staff | mgr-staff |
+| 5 | Inventory | mgr-inventory |
+| 6 | Customers | mgr-customers |
+| 7 | Expenses | mgr-expenses |
+| 8 | **Cash Register** | mgr-cash-register (NEW) |
+| 9 | Day Close | mgr-day-close |
+
+### Dependencies Added:
+- `firebase@12.13.0` — Reinstalled to resolve `firebase/messaging` module not found error
+
+### Lint: Zero errors, zero warnings
+### Commit: `b009ec7` pushed to GitHub → Vercel auto-deploying
