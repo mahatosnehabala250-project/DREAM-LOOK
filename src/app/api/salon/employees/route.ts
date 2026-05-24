@@ -20,11 +20,12 @@ export async function GET(request: NextRequest) {
       const storeId = searchParams.get('storeId');
       let query: any = getFirebaseAdmin().firestore().collection('employees').where('isActive', '==', true);
       if (storeId) query = query.where('storeId', '==', storeId);
-      const snapshot = await query.orderBy('name', 'asc').get();
-      const employees = snapshot.docs.map(doc => {
+      const snapshot = await query.get();
+      let employees = snapshot.docs.map((doc: any) => {
         const d = doc.data();
         return { id: d.id || doc.id, name: d.name, phone: d.phone, role: d.role, storeId: d.storeId, isActive: d.isActive, store: { id: d.storeId, name: d.storeName || '', address: '', phone: '', city: d.storeCity || '', isActive: true } };
       });
+      employees.sort((a: any, b: any) => a.name.localeCompare(b.name));
       return NextResponse.json(employees);
     } catch (err) {
       return NextResponse.json({ error: 'Failed to fetch employees' }, { status: 500 });
