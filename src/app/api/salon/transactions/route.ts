@@ -33,11 +33,55 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transactions)
   } catch (error) {
-    console.error('Error fetching transactions:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch transactions' },
-      { status: 500 }
-    )
+    console.log('[Transactions] SQLite not available, falling back to Firestore...');
+    try {
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+      const { searchParams } = new URL(request.url);
+      const storeId = searchParams.get('storeId');
+      const employeeId = searchParams.get('employeeId');
+      const from = searchParams.get('from');
+      const to = searchParams.get('to');
+
+      let query: any = getFirebaseAdmin().firestore().collection('transactions');
+      if (storeId) {
+        query = query.where('storeId', '==', storeId);
+      }
+      if (employeeId) {
+        query = query.where('employeeId', '==', employeeId);
+      }
+      
+      const snapshot = await query.get();
+      let transactions = snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...doc.data(),
+        completedAt: new Date(doc.data().completedAt || doc.data().createdAt),
+        employee: { name: doc.data().employeeName || 'Unknown' },
+        service: { name: doc.data().serviceName || 'Unknown' },
+        Store: { name: doc.data().storeName || 'Unknown' },
+        productsUsed: []
+      }));
+
+      // In-memory filtering for dates if provided
+      if (from || to) {
+        transactions = transactions.filter((t: any) => {
+          const tDate = t.completedAt.getTime();
+          let valid = true;
+          if (from) valid = valid && tDate >= new Date(from).getTime();
+          if (to) valid = valid && tDate <= new Date(to + 'T23:59:59.999Z').getTime();
+          return valid;
+        });
+      }
+
+      transactions.sort((a: any, b: any) => b.completedAt.getTime() - a.completedAt.getTime());
+
+      return NextResponse.json(transactions);
+    } catch (firebaseError) {
+      console.error('Error fetching transactions from Firebase:', firebaseError);
+      return NextResponse.json(
+        { error: 'Failed to fetch transactions' },
+        { status: 500 }
+      );
+    }
   }
 }
 
