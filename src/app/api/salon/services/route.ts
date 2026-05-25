@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+// ─── Hardcoded fallback: 12 Dream Look salon services ──────────────────────
+// Used when BOTH SQLite and Firestore are unavailable, so the frontend
+// never shows "Loading..." forever.
+function getHardcodedServices() {
+  return [
+    { id: 'svc_1', name: 'Haircut (Men)', price: 100, duration: 30, category: 'HAIRCUT', description: "Classic men's haircut", ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_2', name: 'Haircut (Women)', price: 250, duration: 45, category: 'HAIRCUT', description: "Women's haircut and styling", ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_3', name: 'Beard Trim & Shape', price: 50, duration: 15, category: 'HAIRCUT', description: 'Beard shaping and trimming', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_4', name: 'Hair Coloring', price: 500, duration: 60, category: 'COLOR', description: 'Full hair coloring', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_5', name: 'Hair Highlights', price: 800, duration: 90, category: 'COLOR', description: 'Partial highlights', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_6', name: 'Hair Spa & Treatment', price: 400, duration: 45, category: 'TREATMENT', description: 'Deep conditioning spa', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_7', name: 'Keratin Treatment', price: 2000, duration: 90, category: 'TREATMENT', description: 'Smoothing keratin treatment', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_8', name: 'Facial (Classic)', price: 300, duration: 40, category: 'SPA', description: 'Deep cleansing facial', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_9', name: 'Facial (Gold)', price: 600, duration: 60, category: 'SPA', description: 'Gold facial with glow', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_10', name: 'Head Massage', price: 150, duration: 20, category: 'SPA', description: 'Relaxing oil head massage', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_11', name: 'Bridal Makeup', price: 5000, duration: 120, category: 'BRIDAL', description: 'Complete bridal package', ownerPercent: 50, employeePercent: 50, isActive: true },
+    { id: 'svc_12', name: 'Manicure & Pedicure', price: 350, duration: 40, category: 'SPA', description: 'Complete nail care', ownerPercent: 50, employeePercent: 50, isActive: true },
+  ];
+}
+
 // GET /api/salon/services — List all active services
 export async function GET() {
+  // ── Strategy: Try SQLite → Firestore → Hardcoded fallback ──
   try {
     const services = await db.service.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
     return NextResponse.json(services);
@@ -10,31 +31,21 @@ export async function GET() {
     console.log('[Services] SQLite not available, falling back to Firestore...');
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const snapshot = await getFirebaseAdmin().firestore().collection('services').where('isActive', '==', true).orderBy('name', 'asc').get();
-      const services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Use .orderBy('name', 'asc') only — filter isActive in JS to avoid needing a composite index
+      const snapshot = await getFirebaseAdmin().firestore().collection('services').orderBy('name', 'asc').get();
+      const services = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((s: Record<string, unknown>) => s.isActive === true);
 
       if (services.length === 0) {
         // Seed default services into Firestore for first-time Vercel access
-        const defaultServices = [
-          { id: 'svc_1', name: 'Haircut', price: 200, duration: 30, category: 'HAIRCUT', description: 'Classic haircut', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_2', name: 'Hair Color', price: 500, duration: 60, category: 'COLOR', description: 'Full hair coloring', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_3', name: 'Hair Spa', price: 300, duration: 45, category: 'TREATMENT', description: 'Relaxing hair spa', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_4', name: 'Facial', price: 400, duration: 45, category: 'SPA', description: 'Deep cleansing facial', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_5', name: 'Bridal Makeup', price: 5000, duration: 120, category: 'BRIDAL', description: 'Complete bridal makeup', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_6', name: 'Beard Trim', price: 100, duration: 15, category: 'HAIRCUT', description: 'Beard shaping and trim', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_7', name: 'Hair Straightening', price: 1500, duration: 90, category: 'TREATMENT', description: 'Permanent hair straightening', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_8', name: 'Head Massage', price: 200, duration: 20, category: 'SPA', description: 'Relaxing head massage', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_9', name: 'Keratin Treatment', price: 2000, duration: 90, category: 'TREATMENT', description: 'Keratin smoothing treatment', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_10', name: 'Hair Wash & Blow Dry', price: 150, duration: 25, category: 'HAIRCUT', description: 'Wash and blow dry styling', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_11', name: 'Manicure', price: 250, duration: 30, category: 'SPA', description: 'Nail care and polish', ownerPercent: 50, employeePercent: 50, isActive: true },
-          { id: 'svc_12', name: 'Pedicure', price: 300, duration: 30, category: 'SPA', description: 'Foot care and massage', ownerPercent: 50, employeePercent: 50, isActive: true },
-        ];
-
+        const defaultServices = getHardcodedServices();
         const batch = getFirebaseAdmin().firestore().batch();
         for (const svc of defaultServices) {
           batch.set(getFirebaseAdmin().firestore().collection('services').doc(svc.id), {
             ...svc,
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           });
         }
         await batch.commit();
@@ -44,7 +55,9 @@ export async function GET() {
 
       return NextResponse.json(services);
     } catch (err) {
-      return NextResponse.json({ error: 'Failed to fetch services' }, { status: 500 });
+      console.error('[Services] Firestore also unavailable, using hardcoded fallback:', err);
+      // Last resort: return hardcoded services so the frontend never shows "Loading..." forever
+      return NextResponse.json(getHardcodedServices());
     }
   }
 }

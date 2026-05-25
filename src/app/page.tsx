@@ -3391,10 +3391,16 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ONLINE' | 'SPLIT'>('CASH');
+  const [splitCash, setSplitCash] = useState(0);
+  const [splitOnline, setSplitOnline] = useState(0);
   const [selectedProducts, setSelectedProducts] = useState<Record<string, boolean>>({});
   const [productQty, setProductQty] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
+
+  const servicePrice = selectedService?.price || 0;
+  const splitRemaining = servicePrice - splitCash - splitOnline;
+  const splitValid = paymentMethod !== 'SPLIT' || (splitCash >= 0 && splitOnline >= 0 && Math.abs(splitRemaining) < 0.01);
 
   const activeServices = useMemo(() => (services || []).filter(s => s.isActive), [services]);
   const filteredServices = useMemo(() => serviceFilter === 'ALL' ? activeServices : activeServices.filter(s => s.category === serviceFilter), [activeServices, serviceFilter]);
@@ -3468,28 +3474,40 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
       toast.error('Please fill customer name and select a service');
       return;
     }
+    if (paymentMethod === 'SPLIT' && !splitValid) {
+      toast.error('Cash + Online must equal service price');
+      return;
+    }
     setSubmitting(true);
     try {
       const prodsUsed = Object.entries(selectedProducts)
         .filter(([, v]) => v)
         .map(([id]) => ({ productId: id, quantityUsed: productQty[id] || 1 }));
 
+      let cashAmt = 0;
+      let onlineAmt = 0;
+      if (paymentMethod === 'CASH') { cashAmt = servicePrice; }
+      else if (paymentMethod === 'ONLINE') { onlineAmt = servicePrice; }
+      else { cashAmt = splitCash; onlineAmt = splitOnline; }
+
       const res = await apiPost('/api/salon/service-entry', {
         employeeId, storeId, serviceId: selectedServiceId,
         customerName: customerName.trim(),
         customerPhone: customerPhone || undefined,
         paymentMethod,
+        cashAmount: cashAmt,
+        onlineAmount: onlineAmt,
         productsUsed: prodsUsed,
       });
 
       if (res.isNewCustomer) {
         toast.success('New customer added + Service recorded! 🎉', {
-          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
+          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)}) · ${paymentMethod}`,
         });
         onServiceRecorded?.(true);
       } else {
         toast.success('Service recorded for Old Customer! ✅', {
-          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
+          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)}) · ${paymentMethod}`,
         });
         onServiceRecorded?.(false);
       }
@@ -3498,13 +3516,14 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
       setServiceFilter('ALL');
       setExistingCustomer(null); setCustomerLookupDone(false);
       setSelectedProducts({}); setProductQty({}); setPaymentMethod('CASH');
+      setSplitCash(0); setSplitOnline(0);
       onSuccess();
     } catch (e) {
       toast.error('Failed to record service', { description: (e as Error).message });
     } finally { setSubmitting(false); }
-  }, [employeeId, storeId, selectedServiceId, customerName, customerPhone, paymentMethod, selectedProducts, productQty, selectedService, onSuccess, onServiceRecorded]);
+  }, [employeeId, storeId, selectedServiceId, customerName, customerPhone, paymentMethod, splitCash, splitOnline, splitValid, servicePrice, selectedProducts, productQty, selectedService, onSuccess, onServiceRecorded]);
 
-  const canSubmit = customerName.trim().length > 0 && selectedServiceId.length > 0 && !submitting;
+  const canSubmit = customerName.trim().length > 0 && selectedServiceId.length > 0 && !submitting && (paymentMethod !== 'SPLIT' || splitValid);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -3693,6 +3712,79 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
                 <Receipt className="w-4 h-4" /> Split
               </button>
             </div>
+
+            {/* Split Payment — Cash & Online input fields */}
+            {paymentMethod === 'SPLIT' && selectedService && (
+              <div className="space-y-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Split Payment Details</span>
+                  <span className="text-[10px] text-muted-foreground">Total: {formatCurrency(servicePrice)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
+                      <Banknote className="w-3 h-3" /> Cash Amount
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">₹</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={servicePrice}
+                        value={splitCash || ''}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.min(servicePrice, Number(e.target.value) || 0));
+                          setSplitCash(val);
+                          // Auto-fill online = remaining
+                          const remaining = servicePrice - val;
+                          if (remaining >= 0) setSplitOnline(Math.round(remaining));
+                        }}
+                        placeholder="0"
+                        className="h-9 text-sm pl-7 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1">
+                      <Smartphone className="w-3 h-3" /> Online Amount
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">₹</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={servicePrice}
+                        value={splitOnline || ''}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.min(servicePrice, Number(e.target.value) || 0));
+                          setSplitOnline(val);
+                          // Auto-fill cash = remaining
+                          const remaining = servicePrice - val;
+                          if (remaining >= 0) setSplitCash(Math.round(remaining));
+                        }}
+                        placeholder="0"
+                        className="h-9 text-sm pl-7 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Validation indicator */}
+                <div className={`flex items-center justify-between text-[10px] font-medium px-1 pt-1 ${
+                  splitValid
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-500'
+                }`}>
+                  <span>Cash + Online = {formatCurrency(splitCash + splitOnline)}</span>
+                  {splitValid ? (
+                    <span className="flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Balanced</span>
+                  ) : (
+                    <span className="flex items-center gap-0.5"><AlertTriangle className="w-3 h-3" /> {splitRemaining > 0 ? `${formatCurrency(Math.abs(splitRemaining))} remaining` : `${formatCurrency(Math.abs(splitRemaining))} extra`}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Commission Preview */}

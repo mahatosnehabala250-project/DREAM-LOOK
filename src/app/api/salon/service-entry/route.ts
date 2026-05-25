@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
     customerName,
     customerPhone,
     paymentMethod = 'CASH',
+    cashAmount: reqCashAmount,
+    onlineAmount: reqOnlineAmount,
     productsUsed = [],
   } = body
 
@@ -126,9 +128,9 @@ export async function POST(request: NextRequest) {
     } else if (paymentMethod === 'ONLINE') {
       onlineAmount = servicePrice
     } else if (paymentMethod === 'SPLIT') {
-      // Default split: 50/50
-      cashAmount = servicePrice / 2
-      onlineAmount = servicePrice / 2
+      // Use client-provided split amounts if available, otherwise 50/50
+      cashAmount = Number(reqCashAmount) || servicePrice / 2
+      onlineAmount = Number(reqOnlineAmount) || servicePrice / 2
     }
 
     // 3 & 4. Create appointment + transaction in one atomic operation
@@ -300,8 +302,8 @@ export async function POST(request: NextRequest) {
       } else if (paymentMethod === 'ONLINE') {
         onlineAmount = servicePrice
       } else if (paymentMethod === 'SPLIT') {
-        cashAmount = servicePrice / 2
-        onlineAmount = servicePrice / 2
+        cashAmount = Number(reqCashAmount) || servicePrice / 2
+        onlineAmount = Number(reqOnlineAmount) || servicePrice / 2
       }
 
       const now = new Date()
