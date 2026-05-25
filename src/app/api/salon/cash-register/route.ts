@@ -147,30 +147,37 @@ export async function GET(req: NextRequest) {
 
 // POST /api/salon/cash-register — Open/Save (close) cash register for the day
 export async function POST(req: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await req.json()
-    const { branchId, date, openingBalance, closingBalance, closedBy } = body
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-    if (!branchId || !date) {
-      return NextResponse.json(
-        { error: 'branchId and date are required' },
-        { status: 400 }
-      )
-    }
+  const { branchId, date, openingBalance, closingBalance, closedBy } = body
 
-    if (!closedBy) {
-      return NextResponse.json(
-        { error: 'closedBy (user ID) is required' },
-        { status: 400 }
-      )
-    }
+  if (!branchId || !date) {
+    return NextResponse.json(
+      { error: 'branchId and date are required' },
+      { status: 400 }
+    )
+  }
 
+  if (!closedBy) {
+    return NextResponse.json(
+      { error: 'closedBy (user ID) is required' },
+      { status: 400 }
+    )
+  }
+
+  try {
     // Calculate actual totals from transactions
-    const dayStart = new Date(date + 'T00:00:00')
-    const dayEnd = new Date(date + 'T23:59:59')
+    const dayStart = new Date((date as string) + 'T00:00:00')
+    const dayEnd = new Date((date as string) + 'T23:59:59')
     const transactions = await db.transaction.findMany({
       where: {
-        storeId: branchId,
+        storeId: branchId as string,
         completedAt: { gte: dayStart, lt: dayEnd },
       },
     })
@@ -189,7 +196,7 @@ export async function POST(req: NextRequest) {
 
     // Check if already locked
     const existing = await db.dayClose.findUnique({
-      where: { branchId_date: { branchId, date } },
+      where: { branchId_date: { branchId: branchId as string, date: date as string } },
     })
 
     if (existing?.isLocked) {
@@ -217,17 +224,17 @@ export async function POST(req: NextRequest) {
 
     // Upsert the DayClose record
     const dayClose = await db.dayClose.upsert({
-      where: { branchId_date: { branchId, date } },
+      where: { branchId_date: { branchId: branchId as string, date: date as string } },
       update: updateData,
       create: {
-        branchId,
-        date,
+        branchId: branchId as string,
+        date: date as string,
         totalRevenue,
         totalCash,
         totalOnline,
         totalServices,
         isLocked: isClosing,
-        closedBy: isClosing ? closedBy : null,
+        closedBy: isClosing ? closedBy as string : null,
       },
       include: { Store: { select: { id: true, name: true } } },
     })
@@ -237,7 +244,7 @@ export async function POST(req: NextRequest) {
     await db.auditLog.create({
       data: {
         action: auditAction,
-        performedBy: closedBy,
+        performedBy: closedBy as string,
         targetData: JSON.stringify({ branchId, date }),
         newValue: JSON.stringify({
           totalRevenue,
@@ -247,7 +254,7 @@ export async function POST(req: NextRequest) {
           openingBalance: openingBalance ?? null,
           closingBalance: closingBalance ?? null,
         }),
-        branchId,
+        branchId: branchId as string,
       },
     })
 
@@ -262,28 +269,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.log('[cash-register] SQLite not available, falling back to Firestore...')
     try {
-      const body = await req.json()
-      const { branchId, date, openingBalance, closingBalance, closedBy } = body
-
-      if (!branchId || !date) {
-        return NextResponse.json(
-          { error: 'branchId and date are required' },
-          { status: 400 }
-        )
-      }
-
-      if (!closedBy) {
-        return NextResponse.json(
-          { error: 'closedBy (user ID) is required' },
-          { status: 400 }
-        )
-      }
-
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin')
       const firestore = getFirebaseAdmin().firestore()
 
-      const dayStart = new Date(date + 'T00:00:00')
-      const dayEnd = new Date(date + 'T23:59:59')
+      const dayStart = new Date((date as string) + 'T00:00:00')
+      const dayEnd = new Date((date as string) + 'T23:59:59')
 
       // Calculate totals from transactions
       const txSnap = await firestore

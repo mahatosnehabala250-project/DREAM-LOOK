@@ -35,25 +35,33 @@ export async function GET(request: NextRequest) {
 
 // POST /api/salon/employees — Create new employee
 export async function POST(req: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const { name, phone, role, storeId, storeName, storeCity } = await req.json();
-    if (!name || !phone || !role) return NextResponse.json({ error: 'Name, phone, and role required' }, { status: 400 });
-    const allowedRoles = ['STYLIST', 'MANAGER', 'OWNER'];
-    if (!allowedRoles.includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-    const existing = await db.employee.findFirst({ where: { phone } });
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { name, phone, role, storeId, storeName, storeCity } = body
+  if (!name || !phone || !role) return NextResponse.json({ error: 'Name, phone, and role required' }, { status: 400 });
+  const allowedRoles = ['STYLIST', 'MANAGER', 'OWNER'];
+  if (!allowedRoles.includes(role as string)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+
+  try {
+    const existing = await db.employee.findFirst({ where: { phone: phone as string } });
     if (existing) return NextResponse.json({ error: 'Employee with this phone already exists', existingId: existing.id }, { status: 409 });
-    const employee = await db.employee.create({ data: { name, phone, role, storeId: storeId || '', isActive: true } });
+    const employee = await db.employee.create({ data: { name: name as string, phone: phone as string, role: role as string, storeId: (storeId as string) || '', isActive: true } });
     return NextResponse.json(employee, { status: 201 });
   } catch {
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const { name, phone, role, storeId, storeName, storeCity } = await req.json();
       const id = `emp_${Date.now()}`;
-      const doc = { id, name, phone, role, storeId: storeId || '', storeName: storeName || '', storeCity: storeCity || '', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const doc = { id, name, phone, role, storeId: (storeId as string) || '', storeName: (storeName as string) || '', storeCity: (storeCity as string) || '', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       // Check duplicate
-      const existing = await getFirebaseAdmin().firestore().collection('employees').doc(phone).get();
+      const existing = await getFirebaseAdmin().firestore().collection('employees').doc(phone as string).get();
       if (existing.exists) return NextResponse.json({ error: 'Employee with this phone already exists' }, { status: 409 });
-      await getFirebaseAdmin().firestore().collection('employees').doc(phone).set(doc);
+      await getFirebaseAdmin().firestore().collection('employees').doc(phone as string).set(doc);
       return NextResponse.json(doc, { status: 201 });
     } catch (err) {
       return NextResponse.json({ error: 'Failed to create employee' }, { status: 500 });
@@ -63,18 +71,26 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/salon/employees — Update employee
 export async function PATCH(req: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const { id, name, phone, role, storeId, storeName, storeCity, isActive } = await req.json();
-    if (!id) return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { id, name, phone, role, storeId, storeName, storeCity, isActive } = body
+  if (!id) return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
+
+  try {
     const employee = await db.employee.update({
-      where: { id },
+      where: { id: id as string },
       data: { ...(name !== undefined && { name }), ...(phone !== undefined && { phone }), ...(role !== undefined && { role }), ...(storeId !== undefined && { storeId }), ...(isActive !== undefined && { isActive }) },
     });
     return NextResponse.json(employee);
   } catch {
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const { id, name, phone, role, storeId, storeName, storeCity, isActive } = await req.json();
       const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
       if (name !== undefined) updates.name = name;
       if (phone !== undefined) updates.phone = phone;

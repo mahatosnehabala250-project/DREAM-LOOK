@@ -68,8 +68,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  try {
     const { employeeId, storeId, date, checkIn, checkOut, status } = body
 
     if (!employeeId || !storeId || !date) {
@@ -83,23 +90,23 @@ export async function POST(request: NextRequest) {
     const attendance = await db.attendance.upsert({
       where: {
         employeeId_date: {
-          employeeId,
-          date,
+          employeeId: employeeId as string,
+          date: date as string,
         },
       },
       update: {
         ...(checkIn !== undefined ? { checkIn } : {}),
         ...(checkOut !== undefined ? { checkOut } : {}),
         ...(status ? { status } : {}),
-        storeId,
+        storeId: storeId as string,
       },
       create: {
-        employeeId,
-        storeId,
-        date,
-        checkIn: checkIn || null,
-        checkOut: checkOut || null,
-        status: status || 'PRESENT',
+        employeeId: employeeId as string,
+        storeId: storeId as string,
+        date: date as string,
+        checkIn: (checkIn as string) || null,
+        checkOut: (checkOut as string) || null,
+        status: (status as string) || 'PRESENT',
       },
       include: {
         employee: true,
@@ -111,7 +118,6 @@ export async function POST(request: NextRequest) {
   } catch {
     console.log('[Attendance] SQLite not available, falling back to Firestore...')
     try {
-      const body = await request.json()
       const { employeeId, storeId, date, checkIn, checkOut, status } = body
 
       if (!employeeId || !storeId || !date) {
@@ -129,9 +135,9 @@ export async function POST(request: NextRequest) {
         employeeId,
         storeId,
         date,
-        checkIn: checkIn || null,
-        checkOut: checkOut || null,
-        status: status || 'PRESENT',
+        checkIn: (checkIn as string) || null,
+        checkOut: (checkOut as string) || null,
+        status: (status as string) || 'PRESENT',
         updatedAt: new Date().toISOString(),
       }
 

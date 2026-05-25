@@ -3599,31 +3599,45 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
                 ))}
               </SelectContent>
             </Select>
+            {!services && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Loading services...
+              </p>
+            )}
+            {services && activeServices.length === 0 && (
+              <p className="text-xs text-amber-600 text-center py-2">
+                No active services found. Contact manager.
+              </p>
+            )}
+            {selectedService && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40">
+                <span className="text-xs font-medium text-muted-foreground">Service Price</span>
+                <span className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selectedService.price)}</span>
+              </div>
+            )}
           </div>
 
           {/* Payment Method */}
-          {selectedServiceId && (
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5" /> Payment Method
-              </Label>
-              <div className="flex gap-2">
-                {(['CASH', 'ONLINE', 'SPLIT'] as const).map(method => (
-                  <button
-                    key={method}
-                    onClick={() => setPaymentMethod(method)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                      paymentMethod === method
-                        ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {method === 'CASH' ? '💵 Cash' : method === 'ONLINE' ? '📱 Online' : '🔄 Split'}
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5" /> Payment Method
+            </Label>
+            <div className="flex gap-2">
+              {(['CASH', 'ONLINE', 'SPLIT'] as const).map(method => (
+                <button
+                  key={method}
+                  onClick={() => setPaymentMethod(method)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    paymentMethod === method
+                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {method === 'CASH' ? '💵 Cash' : method === 'ONLINE' ? '📱 Online' : '🔄 Split'}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Commission Preview */}
           {selectedService && (

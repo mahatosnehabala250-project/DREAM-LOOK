@@ -87,31 +87,38 @@ export async function GET(request: NextRequest) {
 
 // POST /api/salon/walkin - Add walk-in to queue
 export async function POST(request: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await request.json()
-    const {
-      storeId,
-      employeeId,
-      serviceId,
-      customerName,
-      customerPhone,
-      notes,
-    } = body
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-    // Validate required fields
-    if (!storeId || !employeeId || !serviceId || !customerName) {
-      return NextResponse.json(
-        { error: 'storeId, employeeId, serviceId, and customerName are required' },
-        { status: 400 }
-      )
-    }
+  const {
+    storeId,
+    employeeId,
+    serviceId,
+    customerName,
+    customerPhone,
+    notes,
+  } = body
 
+  // Validate required fields
+  if (!storeId || !employeeId || !serviceId || !customerName) {
+    return NextResponse.json(
+      { error: 'storeId, employeeId, serviceId, and customerName are required' },
+      { status: 400 }
+    )
+  }
+
+  try {
     // Find or create customer by phone
     let customerId: string | undefined
 
     if (customerPhone) {
       const existingCustomer = await db.customer.findFirst({
-        where: { phone: customerPhone },
+        where: { phone: customerPhone as string },
       })
 
       if (existingCustomer) {
@@ -119,8 +126,8 @@ export async function POST(request: NextRequest) {
       } else {
         const newCustomer = await db.customer.create({
           data: {
-            name: customerName,
-            phone: customerPhone,
+            name: customerName as string,
+            phone: customerPhone as string,
           },
         })
         customerId = newCustomer.id
@@ -131,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (!customerId) {
       const newCustomer = await db.customer.create({
         data: {
-          name: customerName,
+          name: customerName as string,
           phone: `walkin_${Date.now()}`,
         },
       })
@@ -150,9 +157,9 @@ export async function POST(request: NextRequest) {
     const appointment = await db.appointment.create({
       data: {
         customerId,
-        storeId,
-        employeeId,
-        serviceId,
+        storeId: storeId as string,
+        employeeId: employeeId as string,
+        serviceId: serviceId as string,
         date: today,
         time: currentTime,
         status: 'WALK_IN',
@@ -170,24 +177,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.log('[walkin] SQLite not available, falling back to Firestore...')
     try {
-      const body = await request.json()
-      const {
-        storeId,
-        employeeId,
-        serviceId,
-        customerName,
-        customerPhone,
-        notes,
-      } = body
-
-      // Validate required fields
-      if (!storeId || !employeeId || !serviceId || !customerName) {
-        return NextResponse.json(
-          { error: 'storeId, employeeId, serviceId, and customerName are required' },
-          { status: 400 }
-        )
-      }
-
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin')
       const firestore = getFirebaseAdmin().firestore()
 
@@ -197,7 +186,7 @@ export async function POST(request: NextRequest) {
       if (customerPhone) {
         const customersSnap = await firestore
           .collection('customers')
-          .where('phone', '==', customerPhone)
+          .where('phone', '==', customerPhone as string)
           .limit(1)
           .get()
 
@@ -220,7 +209,7 @@ export async function POST(request: NextRequest) {
         customerId = newCustomerRef.id
       }
 
-      const appointmentNotes = notes ? `Walk-in - ${notes}` : 'Walk-in'
+      const appointmentNotes = (notes as string) ? `Walk-in - ${notes}` : 'Walk-in'
       const now = new Date()
       const today = format(now, 'yyyy-MM-dd')
       const currentTime = format(now, 'HH:mm')
@@ -236,12 +225,12 @@ export async function POST(request: NextRequest) {
       } catch { /* skip */ }
 
       try {
-        const empDoc = await firestore.collection('employees').doc(employeeId).get()
+        const empDoc = await firestore.collection('employees').doc(employeeId as string).get()
         if (empDoc.exists) employee = { id: empDoc.id, ...empDoc.data() }
       } catch { /* skip */ }
 
       try {
-        const svcDoc = await firestore.collection('services').doc(serviceId).get()
+        const svcDoc = await firestore.collection('services').doc(serviceId as string).get()
         if (svcDoc.exists) service = { id: svcDoc.id, ...svcDoc.data() }
       } catch { /* skip */ }
 
@@ -290,28 +279,35 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/salon/walkin - Update walk-in status
 export async function PATCH(request: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await request.json()
-    const { appointmentId, status } = body
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-    if (!appointmentId || !status) {
-      return NextResponse.json(
-        { error: 'appointmentId and status are required' },
-        { status: 400 }
-      )
-    }
+  const { appointmentId, status } = body
 
-    const validStatuses = ['IN_PROGRESS', 'COMPLETED', 'CANCELLED']
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
-        { status: 400 }
-      )
-    }
+  if (!appointmentId || !status) {
+    return NextResponse.json(
+      { error: 'appointmentId and status are required' },
+      { status: 400 }
+    )
+  }
 
+  const validStatuses = ['IN_PROGRESS', 'COMPLETED', 'CANCELLED']
+  if (!validStatuses.includes(status as string)) {
+    return NextResponse.json(
+      { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
+      { status: 400 }
+    )
+  }
+
+  try {
     // Find the appointment
     const existingAppointment = await db.appointment.findUnique({
-      where: { id: appointmentId },
+      where: { id: appointmentId as string },
     })
 
     if (!existingAppointment) {
@@ -323,8 +319,8 @@ export async function PATCH(request: NextRequest) {
 
     // Update the appointment status
     const updatedAppointment = await db.appointment.update({
-      where: { id: appointmentId },
-      data: { status },
+      where: { id: appointmentId as string },
+      data: { status: status as string },
       include: {
         customer: true,
         Store: true,
@@ -337,29 +333,11 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.log('[walkin] SQLite not available, falling back to Firestore...')
     try {
-      const body = await request.json()
-      const { appointmentId, status } = body
-
-      if (!appointmentId || !status) {
-        return NextResponse.json(
-          { error: 'appointmentId and status are required' },
-          { status: 400 }
-        )
-      }
-
-      const validStatuses = ['IN_PROGRESS', 'COMPLETED', 'CANCELLED']
-      if (!validStatuses.includes(status)) {
-        return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
-          { status: 400 }
-        )
-      }
-
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin')
       const firestore = getFirebaseAdmin().firestore()
 
       // Check if appointment exists
-      const apptDoc = await firestore.collection('appointments').doc(appointmentId).get()
+      const apptDoc = await firestore.collection('appointments').doc(appointmentId as string).get()
       if (!apptDoc.exists) {
         return NextResponse.json(
           { error: 'Appointment not found' },
@@ -368,13 +346,13 @@ export async function PATCH(request: NextRequest) {
       }
 
       // Update status
-      await firestore.collection('appointments').doc(appointmentId).update({
+      await firestore.collection('appointments').doc(appointmentId as string).update({
         status,
         updatedAt: new Date().toISOString(),
       })
 
       // Fetch updated doc with includes
-      const updatedDoc = await firestore.collection('appointments').doc(appointmentId).get()
+      const updatedDoc = await firestore.collection('appointments').doc(appointmentId as string).get()
       const data = updatedDoc.data()!
 
       let customer: Record<string, unknown> | null = null

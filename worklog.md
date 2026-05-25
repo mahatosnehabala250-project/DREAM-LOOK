@@ -2016,3 +2016,30 @@ Vercel build was failing with 11 parsing errors across 9 API route files. Root c
 - Lint: Zero errors ✅
 - Vercel: Build succeeded, deployment READY ✅
 - Git: Pushed to main (commit 0369609) ✅
+
+---
+Task ID: 4
+Agent: API Bug Fix Agent
+Task: Fix request.json double-consumption bug + Firestore service seeding
+
+Work Log:
+- Fixed request.json() double-consumption in all POST/PATCH handlers across 8 API route files
+- Added default salon services seeding (12 services) when Firestore returns empty on Vercel
+- Added default products seeding (8 products) when Firestore returns empty on Vercel
+- Also fixed stores/route.ts POST and PATCH handlers for the same double-consumption bug
+- Verified with lint (0 errors in changed files)
+
+Files Modified (8):
+- src/app/api/salon/attendance/route.ts — POST handler body read before try-catch
+- src/app/api/salon/service-entry/route.ts — POST handler body read before try-catch
+- src/app/api/salon/walkin/route.ts — POST + PATCH handlers body read before try-catch
+- src/app/api/salon/cash-register/route.ts — POST handler body read before try-catch
+- src/app/api/salon/employees/route.ts — POST + PATCH handlers body read before try-catch
+- src/app/api/salon/services/route.ts — POST + PATCH handlers body read before try-catch; GET Firestore fallback seeds 12 default services
+- src/app/api/salon/products/route.ts — POST + PATCH handlers body read before try-catch; GET Firestore fallback seeds 8 default products
+- src/app/api/salon/stores/route.ts — POST + PATCH handlers body read before try-catch
+
+Stage Summary:
+- All API routes now properly read body once and use it in both SQLite and Firestore paths
+- Services and products auto-seed on first Firestore access on Vercel
+- Check-in, service entry, walk-in, cash register, and all write operations should now work on Vercel

@@ -11,7 +11,38 @@ export async function GET() {
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
       const snapshot = await getFirebaseAdmin().firestore().collection('services').where('isActive', '==', true).orderBy('name', 'asc').get();
-      return NextResponse.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (services.length === 0) {
+        // Seed default services into Firestore for first-time Vercel access
+        const defaultServices = [
+          { id: 'svc_1', name: 'Haircut', price: 200, duration: 30, category: 'HAIRCUT', description: 'Classic haircut', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_2', name: 'Hair Color', price: 500, duration: 60, category: 'COLOR', description: 'Full hair coloring', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_3', name: 'Hair Spa', price: 300, duration: 45, category: 'TREATMENT', description: 'Relaxing hair spa', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_4', name: 'Facial', price: 400, duration: 45, category: 'SPA', description: 'Deep cleansing facial', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_5', name: 'Bridal Makeup', price: 5000, duration: 120, category: 'BRIDAL', description: 'Complete bridal makeup', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_6', name: 'Beard Trim', price: 100, duration: 15, category: 'HAIRCUT', description: 'Beard shaping and trim', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_7', name: 'Hair Straightening', price: 1500, duration: 90, category: 'TREATMENT', description: 'Permanent hair straightening', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_8', name: 'Head Massage', price: 200, duration: 20, category: 'SPA', description: 'Relaxing head massage', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_9', name: 'Keratin Treatment', price: 2000, duration: 90, category: 'TREATMENT', description: 'Keratin smoothing treatment', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_10', name: 'Hair Wash & Blow Dry', price: 150, duration: 25, category: 'HAIRCUT', description: 'Wash and blow dry styling', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_11', name: 'Manicure', price: 250, duration: 30, category: 'SPA', description: 'Nail care and polish', ownerPercent: 50, employeePercent: 50, isActive: true },
+          { id: 'svc_12', name: 'Pedicure', price: 300, duration: 30, category: 'SPA', description: 'Foot care and massage', ownerPercent: 50, employeePercent: 50, isActive: true },
+        ];
+
+        const batch = getFirebaseAdmin().firestore().batch();
+        for (const svc of defaultServices) {
+          batch.set(getFirebaseAdmin().firestore().collection('services').doc(svc.id), {
+            ...svc,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        await batch.commit();
+
+        return NextResponse.json(defaultServices);
+      }
+
+      return NextResponse.json(services);
     } catch (err) {
       return NextResponse.json({ error: 'Failed to fetch services' }, { status: 500 });
     }
@@ -20,22 +51,26 @@ export async function GET() {
 
 // POST /api/salon/services — Create new service
 export async function POST(req: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await req.json();
-    const { name, price, duration, category, description, ownerPercent, employeePercent, performedBy } = body;
-    if (!name || price === undefined || !duration || !category) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    const oPct = ownerPercent || 50;
-    const ePct = employeePercent || 50;
-    if (oPct + ePct !== 100) return NextResponse.json({ error: 'Owner% + Employee% must equal 100' }, { status: 400 });
-    const service = await db.service.create({ data: { name, price, duration, category, description: description || '', ownerPercent: oPct, employeePercent: ePct } });
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { name, price, duration, category, description, ownerPercent, employeePercent, performedBy } = body;
+  if (!name || price === undefined || !duration || !category) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  const oPct = ownerPercent || 50;
+  const ePct = employeePercent || 50;
+  if (oPct + ePct !== 100) return NextResponse.json({ error: 'Owner% + Employee% must equal 100' }, { status: 400 });
+
+  try {
+    const service = await db.service.create({ data: { name: name as string, price: price as number, duration: duration as number, category: category as string, description: (description as string) || '', ownerPercent: oPct as number, employeePercent: ePct as number } });
     return NextResponse.json(service, { status: 201 });
   } catch {
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const body = await req.json();
-      const { name, price, duration, category, description, ownerPercent, employeePercent } = body;
-      const oPct = ownerPercent || 50;
-      const ePct = employeePercent || 50;
       const id = `svc_${Date.now()}`;
       const doc = { id, name, price: Number(price), duration: Number(duration), category, description: description || '', ownerPercent: oPct, employeePercent: ePct, isActive: true, createdAt: new Date().toISOString() };
       await getFirebaseAdmin().firestore().collection('services').doc(id).set(doc);
@@ -48,13 +83,21 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/salon/services — Update service
 export async function PATCH(req: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await req.json();
-    const { id, name, price, duration, category, description, ownerPercent, employeePercent, isActive } = body;
-    if (!id) return NextResponse.json({ error: 'Service ID required' }, { status: 400 });
-    if (ownerPercent !== undefined && employeePercent !== undefined && ownerPercent + employeePercent !== 100) {
-      return NextResponse.json({ error: 'Owner% + Employee% must equal 100' }, { status: 400 });
-    }
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { id, name, price, duration, category, description, ownerPercent, employeePercent, isActive } = body;
+  if (!id) return NextResponse.json({ error: 'Service ID required' }, { status: 400 });
+  if (ownerPercent !== undefined && employeePercent !== undefined && ownerPercent + employeePercent !== 100) {
+    return NextResponse.json({ error: 'Owner% + Employee% must equal 100' }, { status: 400 });
+  }
+
+  try {
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (price !== undefined) updateData.price = price;
@@ -64,13 +107,11 @@ export async function PATCH(req: NextRequest) {
     if (ownerPercent !== undefined) updateData.ownerPercent = ownerPercent;
     if (employeePercent !== undefined) updateData.employeePercent = employeePercent;
     if (isActive !== undefined) updateData.isActive = isActive;
-    const service = await db.service.update({ where: { id }, data: updateData });
+    const service = await db.service.update({ where: { id: id as string }, data: updateData });
     return NextResponse.json(service);
   } catch {
     try {
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const body = await req.json();
-      const { id, name, price, duration, category, description, ownerPercent, employeePercent, isActive } = body;
       const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
       if (name !== undefined) updates.name = name;
       if (price !== undefined) updates.price = Number(price);
@@ -80,7 +121,7 @@ export async function PATCH(req: NextRequest) {
       if (ownerPercent !== undefined) updates.ownerPercent = ownerPercent;
       if (employeePercent !== undefined) updates.employeePercent = employeePercent;
       if (isActive !== undefined) updates.isActive = isActive;
-      await getFirebaseAdmin().firestore().collection('services').doc(id).set(updates, { merge: true });
+      await getFirebaseAdmin().firestore().collection('services').doc(id as string).set(updates, { merge: true });
       return NextResponse.json({ id, ...updates });
     } catch (err) {
       return NextResponse.json({ error: 'Failed to update service' }, { status: 500 });

@@ -6,34 +6,41 @@ import { format } from 'date-fns'
 // Create a complete service entry (appointment + transaction) in one shot
 // For walk-in / direct service recording
 export async function POST(request: NextRequest) {
+  // Read body ONCE before try-catch to avoid double-consumption
+  let body: Record<string, unknown>
   try {
-    const body = await request.json()
-    const {
-      employeeId,
-      storeId,
-      serviceId,
-      customerName,
-      customerPhone,
-      paymentMethod = 'CASH',
-      productsUsed = [],
-    } = body
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-    // 1. Validate required fields
-    if (!employeeId || !storeId || !serviceId || !customerName) {
-      return NextResponse.json(
-        { error: 'employeeId, storeId, serviceId, and customerName are required' },
-        { status: 400 }
-      )
-    }
+  const {
+    employeeId,
+    storeId,
+    serviceId,
+    customerName,
+    customerPhone,
+    paymentMethod = 'CASH',
+    productsUsed = [],
+  } = body
 
-    const validPaymentMethods = ['CASH', 'ONLINE', 'SPLIT']
-    if (!validPaymentMethods.includes(paymentMethod)) {
-      return NextResponse.json(
-        { error: `Invalid paymentMethod. Must be one of: ${validPaymentMethods.join(', ')}` },
-        { status: 400 }
-      )
-    }
+  // 1. Validate required fields
+  if (!employeeId || !storeId || !serviceId || !customerName) {
+    return NextResponse.json(
+      { error: 'employeeId, storeId, serviceId, and customerName are required' },
+      { status: 400 }
+    )
+  }
 
+  const validPaymentMethods = ['CASH', 'ONLINE', 'SPLIT']
+  if (!validPaymentMethods.includes(paymentMethod as string)) {
+    return NextResponse.json(
+      { error: `Invalid paymentMethod. Must be one of: ${validPaymentMethods.join(', ')}` },
+      { status: 400 }
+    )
+  }
+
+  try {
     // 2. Find or create customer
     let customer
     let isNewCustomer = false
@@ -42,7 +49,7 @@ export async function POST(request: NextRequest) {
       // Search existing customers by phone (case-insensitive endsWith match)
       customer = await db.customer.findFirst({
         where: {
-          phone: { endsWith: customerPhone.toLowerCase() },
+          phone: { endsWith: (customerPhone as string).toLowerCase() },
         },
       })
     }
@@ -51,8 +58,8 @@ export async function POST(request: NextRequest) {
       // Create new customer
       customer = await db.customer.create({
         data: {
-          name: customerName,
-          phone: customerPhone || `service_${Date.now()}`,
+          name: customerName as string,
+          phone: (customerPhone as string) || `service_${Date.now()}`,
         },
       })
       isNewCustomer = true
@@ -60,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch service to get price
     const service = await db.service.findUnique({
-      where: { id: serviceId },
+      where: { id: serviceId as string },
     })
 
     if (!service) {
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
       totalCost: number
     }> = []
 
-    for (const item of productsUsed) {
+    for (const item of productsUsed as Array<{ productId: string; quantityUsed: number }>) {
       const product = await db.product.findUnique({
         where: { id: item.productId },
       })
@@ -130,9 +137,9 @@ export async function POST(request: NextRequest) {
       const appointment = await tx.appointment.create({
         data: {
           customerId: customer.id,
-          storeId,
-          employeeId,
-          serviceId,
+          storeId: storeId as string,
+          employeeId: employeeId as string,
+          serviceId: serviceId as string,
           date: format(new Date(), 'yyyy-MM-dd'),
           time: format(new Date(), 'HH:mm'),
           status: 'COMPLETED',
@@ -150,15 +157,15 @@ export async function POST(request: NextRequest) {
       const transaction = await tx.transaction.create({
         data: {
           appointmentId: appointment.id,
-          employeeId,
-          storeId,
-          serviceId,
+          employeeId: employeeId as string,
+          storeId: storeId as string,
+          serviceId: serviceId as string,
           servicePrice,
           ownerShare,
           employeeGrossShare,
           totalProductCost,
           employeeNetShare,
-          paymentMethod,
+          paymentMethod: paymentMethod as string,
           cashAmount,
           onlineAmount,
           completedAt: new Date(),
@@ -177,11 +184,11 @@ export async function POST(request: NextRequest) {
       })
 
       // Decrease inventory for each product used
-      for (const item of productsUsed) {
+      for (const item of productsUsed as Array<{ productId: string; quantityUsed: number }>) {
         const inventory = await tx.inventory.findUnique({
           where: {
             storeId_productId: {
-              storeId,
+              storeId: storeId as string,
               productId: item.productId,
             },
           },
@@ -212,33 +219,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.log('[service-entry] SQLite not available, falling back to Firestore...')
     try {
-      const body = await request.json()
-      const {
-        employeeId,
-        storeId,
-        serviceId,
-        customerName,
-        customerPhone,
-        paymentMethod = 'CASH',
-        productsUsed = [],
-      } = body
-
-      // 1. Validate required fields
-      if (!employeeId || !storeId || !serviceId || !customerName) {
-        return NextResponse.json(
-          { error: 'employeeId, storeId, serviceId, and customerName are required' },
-          { status: 400 }
-        )
-      }
-
-      const validPaymentMethods = ['CASH', 'ONLINE', 'SPLIT']
-      if (!validPaymentMethods.includes(paymentMethod)) {
-        return NextResponse.json(
-          { error: `Invalid paymentMethod. Must be one of: ${validPaymentMethods.join(', ')}` },
-          { status: 400 }
-        )
-      }
-
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin')
       const firestore = getFirebaseAdmin().firestore()
 
@@ -248,7 +228,7 @@ export async function POST(request: NextRequest) {
 
       if (customerPhone) {
         // Search customers by phone
-        const phoneLower = customerPhone.toLowerCase()
+        const phoneLower = (customerPhone as string).toLowerCase()
         const customersSnap = await firestore
           .collection('customers')
           .where('phone', '>=', phoneLower)
@@ -284,7 +264,7 @@ export async function POST(request: NextRequest) {
       const customerData = { id: customerDoc.id, ...customerDoc.data()! }
 
       // Fetch service to get price
-      const serviceDoc = await firestore.collection('services').doc(serviceId).get()
+      const serviceDoc = await firestore.collection('services').doc(serviceId as string).get()
       if (!serviceDoc.exists) {
         return NextResponse.json(
           { error: 'Service not found' },
@@ -298,7 +278,7 @@ export async function POST(request: NextRequest) {
 
       // Calculate product costs
       let totalProductCost = 0
-      for (const item of productsUsed) {
+      for (const item of productsUsed as Array<{ productId: string; quantityUsed: number }>) {
         const productDoc = await firestore.collection('products').doc(item.productId).get()
         if (!productDoc.exists) {
           return NextResponse.json(
