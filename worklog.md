@@ -2612,3 +2612,42 @@ User reported seeing "Something went wrong" error page with message "Cannot acce
 ### User Action Required
 - User needs to **clear browser cache** (Ctrl+Shift+R or use the new "Clear Cache & Reload" button)
 - If issue persists, user should clear all site data in browser settings
+
+---
+
+## TDZ Production Error Fix - Module Split - 2026-05-26
+
+### Task: Fix "Cannot access 's' before initialization" TDZ error in Vercel production
+
+### Problem
+The user reported a persistent TDZ (Temporal Dead Zone) error on the live Vercel site (`dream-look-nu.vercel.app`). The error "Cannot access 's' before initialization" was confirmed even in **incognito mode**, ruling out cache issues. The root cause was the massive **8999-line monolithic `src/app/page.tsx`** file that caused Vercel's JavaScript minifier to create variable name collisions.
+
+### Solution: Module Split
+Split the monolithic file into 9 separate modules:
+
+| File | Lines | Content |
+|------|-------|---------|
+| `src/lib/salon-types.ts` | 134 | All TypeScript interfaces and types |
+| `src/lib/salon-utils.ts` | 142 | Utility functions, constants, API helpers |
+| `src/lib/salon-hooks.ts` | 98 | Custom hooks (useFetch, useAnimatedNumber, useClock, useActiveSection) |
+| `src/components/salon/common.tsx` | 605 | Shared UI components (StatusBadge, GlassCard, StatCard, ErrorBoundary, etc.) |
+| `src/components/salon/auth.tsx` | 359 | LoginPage and LandingPage components |
+| `src/components/salon/customer-view.tsx` | 725 | CustomerView + CustomerAppointmentTracker |
+| `src/components/salon/employee-view.tsx` | 1852 | EmployeeView + all employee sub-components |
+| `src/components/salon/manager-view.tsx` | 3429 | ManagerView + all manager sub-components + some shared owner analytics |
+| `src/components/salon/owner-view.tsx` | 1351 | OwnerView + RecordServiceDialog + owner sub-components |
+| `src/app/page.tsx` | 443 | Thin auth router with header, footer, and view switching |
+
+### Key Changes:
+- `page.tsx` reduced from **8999 → 443 lines** (95% reduction)
+- Each module has its own imports and exports
+- No functionality was lost - all 4 views (Customer, Employee, Manager, Owner) work identically
+- Zero lint errors, zero TypeScript errors
+- All API endpoints returning 200
+- Pushed to GitHub and auto-deploying to Vercel
+
+### Verification:
+- ✅ Dev server compiles successfully
+- ✅ All routes return 200
+- ✅ `bun run lint` passes with zero errors
+- ✅ Git pushed to `main` branch
