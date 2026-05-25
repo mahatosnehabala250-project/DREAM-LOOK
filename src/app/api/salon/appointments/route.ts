@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapAppointment } from '@/lib/prisma-map'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,14 +33,14 @@ export async function GET(request: NextRequest) {
     const appointments = await db.appointment.findMany({
       where,
       include: {
-        customer: true,
+        Customer: true,
         Store: true,
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
       },
       orderBy: [{ date: 'asc' }, { time: 'asc' }],
     })
-    return NextResponse.json(appointments)
+    return NextResponse.json(appointments.map(mapAppointment))
   } catch (error) {
     console.log('[Appointments] SQLite not available, falling back to Firestore...');
     try {

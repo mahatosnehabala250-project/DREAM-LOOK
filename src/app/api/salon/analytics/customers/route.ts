@@ -8,7 +8,7 @@ export async function GET() {
       include: {
         Appointment: {
           include: {
-            transaction: {
+            Transaction: {
               select: { servicePrice: true, employeeNetShare: true },
             },
           },
@@ -21,12 +21,12 @@ export async function GET() {
     const customerSpend = customers.map((c) => {
       const completedAppts = c.Appointment.filter((a) => a.status === 'COMPLETED')
       const totalSpend = completedAppts.reduce(
-        (sum, a) => sum + (a.transaction?.servicePrice || a.id ? 0 : 0),
+        (sum, a) => sum + (a.Transaction?.servicePrice || a.id ? 0 : 0),
         0,
       )
       // Use service price from transaction if available
       const spend = completedAppts.reduce(
-        (sum, a) => sum + (a.transaction?.servicePrice || 0),
+        (sum, a) => sum + (a.Transaction?.servicePrice || 0),
         0,
       )
       return {

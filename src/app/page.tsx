@@ -18,6 +18,7 @@ import {
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
   Wrench, Mail, Medal, Settings, UserCircle, HelpCircle,
   MessageSquare, ExternalLink, LifeBuoy, Info, Trash2, Pencil, Save,
+  Footprints, Minus,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -273,7 +274,7 @@ function MobileBottomNav({ activeRole, setActiveRole }: { activeRole: Role; setA
     { id: 'owner' as Role, label: 'Owner', icon: Crown },
   ];
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/80 backdrop-blur-xl border-t border-border/50 pb-[env(safe-area-inset-bottom,0px)]">
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map((tab) => {
           const isActive = activeRole === tab.id;
@@ -305,12 +306,14 @@ function NotificationBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label="Notifications">
-          <Bell className="w-4 h-4" />
-          {count > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
-              {count > 9 ? '9+' : count}
-            </span>
-          )}
+          <span className={`relative ${count > 0 ? 'animate-breathe' : ''}`}>
+            <Bell className={`w-4 h-4 ${count > 0 ? 'text-rose-500 dark:text-rose-400' : ''}`} />
+            {count > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
+                {count > 9 ? '9+' : count}
+              </span>
+            )}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
@@ -526,7 +529,7 @@ function ChartSkeleton({ height = 280 }: { height?: number }) {
 
 function GlassCard({ children, className = '', ...props }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={`backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-white/20 dark:border-gray-700/30 shadow-lg hover:shadow-lg hover:shadow-rose-500/5 transition-shadow duration-300 ${className}`} {...props}>
+    <Card className={`backdrop-blur-md bg-card/70 dark:bg-card/70 border-border/40 shadow-lg hover:shadow-lg hover:shadow-rose-500/5 hover:scale-[1.005] transition-all duration-300 ${className}`} {...props}>
       {children}
     </Card>
   );
@@ -537,8 +540,10 @@ function StatCard({ icon: Icon, label, value, sub, gradient, trend, index = 0 }:
   gradient: string; trend?: 'up' | 'down' | 'neutral'; index?: number;
 }) {
   return (
-    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }}>
-      <Card className="overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 cursor-pointer">
+    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }}
+      whileHover={{ scale: 1.03, y: -2 }}
+      whileTap={{ scale: 0.98 }}>
+      <Card className="overflow-hidden shadow-md hover:shadow-xl active:scale-[0.99] transition-shadow duration-200 cursor-pointer">
         <div className={`h-1.5 ${gradient}`} />
         <CardContent className="p-5">
           <div className="flex items-start justify-between">
@@ -584,7 +589,7 @@ function LiveClock() {
     <div className="hidden sm:flex items-center gap-2.5 text-sm">
       <Clock className="w-3.5 h-3.5 text-muted-foreground" />
       <span className="font-medium text-muted-foreground">{format(now, 'EEE, MMM d, yyyy')}</span>
-      <span className="font-mono text-xs bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-md border border-rose-200/50 dark:border-rose-800/50">
+      <span className="font-mono text-xs bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300 px-2.5 py-1 rounded-lg border border-rose-200/60 dark:border-rose-800/60 shadow-sm">
         {format(now, 'hh:mm:ss a')}
       </span>
     </div>
@@ -792,7 +797,7 @@ function SectionNav({ sections, activeSection }: {
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border cursor-pointer ${
               activeSection === s.id
                 ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/25'
-                : 'bg-white/50 dark:bg-gray-800/50 text-muted-foreground border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-600 dark:hover:text-rose-400'
+                : 'bg-muted/50 dark:bg-muted/20 text-muted-foreground border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-600 dark:hover:text-rose-400'
             }`}
           >
             {s.label}
@@ -1099,9 +1104,9 @@ export default function Home() {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.03)_1px,transparent_0)] [background-size:24px_24px] dark:[background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)]">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-background to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.03)_1px,transparent_0)] [background-size:24px_24px] dark:[background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)]">
       {/* ─── HEADER ──────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b bg-background/80 dark:bg-background/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Brand */}
@@ -1127,7 +1132,7 @@ export default function Home() {
                   className="pl-9 h-9 bg-muted/50 dark:bg-muted/20"
                 />
                 {searchOpen && searchQuery.trim() && (
-                  <div className="absolute top-full mt-1 w-full bg-white dark:bg-gray-900 rounded-lg shadow-xl border z-50 overflow-hidden">
+                  <div className="absolute top-full mt-1 w-full bg-popover rounded-lg shadow-xl border z-50 overflow-hidden">
                     {searchResults.customers.length === 0 && searchResults.services.length === 0 && (
                       <div className="p-4 text-sm text-muted-foreground text-center">No results found</div>
                     )}
@@ -1209,10 +1214,10 @@ export default function Home() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveRole(tab.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                         activeRole === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400'
+                          ? 'bg-background text-rose-600 dark:text-rose-400 shadow-sm'
+                          : 'text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400'
                       }`}
                     >
                       <tab.icon className="w-4 h-4" />
@@ -1284,7 +1289,7 @@ export default function Home() {
       {!authUser && <MobileBottomNav activeRole={activeRole} setActiveRole={setActiveRole} />}
 
       {/* ─── FOOTER (with bottom nav padding) ──────────── */}
-      <footer className={`border-t bg-gradient-to-r from-white/80 via-rose-50/50 to-pink-50/50 dark:from-gray-950/80 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto ${!authUser ? 'pb-bottom-nav' : ''}`}>
+      <footer className={`border-t bg-gradient-to-r from-background/80 via-rose-50/50 to-pink-50/50 dark:via-rose-950/10 dark:to-pink-950/10 backdrop-blur-sm mt-auto ${!authUser ? 'pb-safe-bottom' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 py-6">
           {/* Top row: brand + links */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1449,7 +1454,7 @@ function LoginPage({ role, onLogin, onBack }: {
         className="w-full max-w-md"
       >
         {/* Glassmorphism Card */}
-        <Card className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-white/30 dark:border-gray-700/30 shadow-2xl overflow-hidden">
+        <Card className="backdrop-blur-xl bg-card/70 border-border/30 shadow-2xl overflow-hidden">
           {/* Gradient Header */}
           <div className={`h-32 bg-gradient-to-br ${config.gradient} relative flex items-center justify-center`}>
             <div className="absolute inset-0 bg-black/5" />
@@ -1597,11 +1602,12 @@ function LandingPage({ onSelectRole, onBookAsCustomer }: {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-rose-50/50 via-background to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10">
       {/* Decorative background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-rose-200/30 dark:bg-rose-900/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-pink-200/30 dark:bg-pink-900/10 blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-rose-200/30 dark:bg-rose-900/10 blur-3xl animate-breathe" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-pink-200/30 dark:bg-pink-900/10 blur-3xl animate-breathe" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/3 left-1/4 w-72 h-72 rounded-full bg-fuchsia-200/20 dark:bg-fuchsia-900/5 blur-3xl animate-breathe" style={{ animationDelay: '2s' }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-rose-100/20 to-pink-100/20 dark:from-rose-900/5 dark:to-pink-900/5 blur-3xl" />
       </div>
 
@@ -1661,7 +1667,7 @@ function LandingPage({ onSelectRole, onBookAsCustomer }: {
               onClick={() => onSelectRole(card.id)}
               className="group relative text-left cursor-pointer focus:outline-none"
             >
-              <Card className={`backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border-white/30 dark:border-gray-700/20 shadow-lg ${card.shadow} hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-200 overflow-hidden h-full cursor-pointer`}>
+              <Card className={`backdrop-blur-xl bg-card/60 border-border/20 shadow-lg ${card.shadow} hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-200 overflow-hidden h-full cursor-pointer`}>
                 {/* Gradient accent bar */}
                 <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
                 <CardContent className="p-6 flex flex-col items-center text-center gap-4">
@@ -2079,8 +2085,8 @@ function CustomerView() {
                             className={`py-2 px-1 rounded-lg text-xs font-medium transition-all ${
                               isSelected ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' :
                               isBusy ? 'bg-red-50 dark:bg-red-900/20 text-red-400 dark:text-red-500 cursor-not-allowed line-through' :
-                              isPast ? 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-600 cursor-not-allowed' :
-                              'bg-white dark:bg-gray-800 border hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                              isPast ? 'bg-muted/30 dark:bg-muted/10 text-muted-foreground cursor-not-allowed' :
+                              'bg-card border hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30'
                             }`}>
                             {formatTime(slot)}
                           </button>
@@ -2114,7 +2120,7 @@ function CustomerView() {
                           }`}>
                           <Avatar className="h-10 w-10">
                             <AvatarFallback className={`text-xs font-semibold transition-colors ${
-                              isSelected ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-gray-100 dark:bg-gray-800'
+                              isSelected ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-muted dark:bg-muted/50'
                             }`}>
                               {getInitials(emp.name)}
                             </AvatarFallback>
@@ -2450,6 +2456,163 @@ function QuickStatsCard({ todayTransactions, weekTransactions }: { todayTransact
   );
 }
 
+// ─── EMPLOYEE DAILY GOALS TRACKER ──────────────────────────────
+function EmployeeDailyGoalsTracker({ currentEarnings }: { currentEarnings: number }) {
+  const [target, setTarget] = useState(2000);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(String(target));
+
+  const percentage = useMemo(() => {
+    if (target <= 0) return 0;
+    return Math.min((currentEarnings / target) * 100, 100);
+  }, [currentEarnings, target]);
+
+  const motivationalMessage = useMemo(() => {
+    if (percentage >= 100) return { text: 'Target achieved! 🎉', color: 'text-emerald-600 dark:text-emerald-400' };
+    if (percentage >= 75) return { text: 'So close!', color: 'text-rose-600 dark:text-rose-400' };
+    if (percentage >= 50) return { text: 'Almost there!', color: 'text-amber-600 dark:text-amber-400' };
+    if (percentage >= 25) return { text: 'Great start!', color: 'text-blue-600 dark:text-blue-400' };
+    return { text: 'Keep going!', color: 'text-muted-foreground' };
+  }, [percentage]);
+
+  const handleSaveTarget = useCallback(() => {
+    const val = parseInt(editValue);
+    if (val > 0 && val <= 100000) {
+      setTarget(val);
+      toast.success(`Daily target set to ${formatCurrency(val)}`);
+    }
+    setIsEditing(false);
+  }, [editValue]);
+
+  const circumference = 2 * Math.PI * 54; // radius = 54
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <Card className="shadow-sm border border-rose-100 dark:border-rose-900/40 bg-gradient-to-r from-rose-50/50 via-pink-50/30 to-fuchsia-50/30 dark:from-rose-950/10 dark:via-pink-950/5 dark:to-fuchsia-950/5">
+        <CardContent className="p-5">
+          <div className="flex items-center gap-6">
+            {/* Circular Progress Ring */}
+            <div className="relative shrink-0">
+              <svg width="140" height="140" viewBox="0 0 120 120" className="transform -rotate-90">
+                {/* Background circle */}
+                <circle
+                  cx="60" cy="60" r="54"
+                  fill="none"
+                  stroke="currentColor"
+                  className="text-muted/30"
+                  strokeWidth="8"
+                />
+                {/* Progress circle */}
+                <motion.circle
+                  cx="60" cy="60" r="54"
+                  fill="none"
+                  stroke="url(#goalGradient)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  initial={{ strokeDashoffset: circumference }}
+                  animate={{ strokeDashoffset }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  strokeDasharray={circumference}
+                />
+                <defs>
+                  <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#f43f5e" />
+                    <stop offset="100%" stopColor="#ec4899" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <motion.span
+                  key={Math.round(percentage)}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  className="text-2xl font-bold"
+                >
+                  {Math.round(percentage)}%
+                </motion.span>
+                <span className="text-[10px] text-muted-foreground font-medium">of goal</span>
+              </div>
+            </div>
+
+            {/* Goal details */}
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold">Daily Earnings Goal</h3>
+                <button
+                  onClick={() => { setIsEditing(true); setEditValue(String(target)); }}
+                  className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium cursor-pointer"
+                >
+                  Edit Target
+                </button>
+              </div>
+
+              {/* Earnings vs Target */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-background/60 dark:bg-background/40 rounded-lg p-2.5 border border-border/30">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Earned</p>
+                  <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(currentEarnings)}</p>
+                </div>
+                <div className="bg-background/60 dark:bg-background/40 rounded-lg p-2.5 border border-border/30">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Target</p>
+                  <p className="text-lg font-bold">{formatCurrency(target)}</p>
+                </div>
+              </div>
+
+              {/* Remaining / Surplus */}
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${motivationalMessage.color}`}>
+                  {motivationalMessage.text}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {currentEarnings >= target
+                    ? `+${formatCurrency(currentEarnings - target)} extra`
+                    : `${formatCurrency(target - currentEarnings)} remaining`
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Edit Target Dialog (inline) */}
+          <AnimatePresence>
+            {isEditing && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-4 pt-4 border-t border-border/30 flex items-center gap-3">
+                  <Label className="text-xs font-medium shrink-0">₹ Target:</Label>
+                  <Input
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="h-9 w-32 text-sm"
+                    min={100}
+                    max={100000}
+                    step={100}
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTarget(); if (e.key === 'Escape') setIsEditing(false); }}
+                  />
+                  <Button size="sm" onClick={handleSaveTarget} className="h-9 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700">
+                    <Check className="w-3.5 h-3.5 mr-1" /> Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-9">
+                    Cancel
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
 function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => authUser?.id || '');
 
@@ -2591,13 +2754,18 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
         )}
       </div>
 
+      {/* ─── DAILY GOALS TRACKER ────────────────────────────── */}
+      {authUser && (
+        <EmployeeDailyGoalsTracker currentEarnings={todayEarnings.net} />
+      )}
+
       {/* ─── SELF CHECK-IN / CHECK-OUT CARD ───────────────── */}
       {authUser && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          <Card className={`shadow-md overflow-hidden border-2 ${!isCheckedIn ? 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-background' : isCheckedIn && !isCheckedOut ? 'border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-background' : 'border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900/20 dark:to-background'}`}>
+          <Card className={`shadow-md overflow-hidden border-2 ${!isCheckedIn ? 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-background dark:from-emerald-950/20 dark:to-background' : isCheckedIn && !isCheckedOut ? 'border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-background dark:from-amber-950/20 dark:to-background' : 'border-border bg-gradient-to-br from-muted/30 to-background dark:from-muted/10 dark:to-background'}`}>
             <CardContent className="p-5">
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${!isCheckedIn ? 'bg-emerald-100 dark:bg-emerald-900/40' : isCheckedIn && !isCheckedOut ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${!isCheckedIn ? 'bg-emerald-100 dark:bg-emerald-900/40' : isCheckedIn && !isCheckedOut ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted dark:bg-muted/50'}`}>
                   {!isCheckedIn ? <LogIn className="w-8 h-8 text-emerald-600 dark:text-emerald-400" /> : isCheckedIn && !isCheckedOut ? <Timer className="w-8 h-8 text-amber-600 dark:text-amber-400" /> : <CheckCircle2 className="w-8 h-8 text-gray-500 dark:text-gray-400" />}
                 </div>
                 <div className="flex-1 text-center sm:text-left">
@@ -2624,7 +2792,7 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                     </Button>
                   )}
                   {isCheckedOut && (
-                    <Badge variant="secondary" className="text-sm px-4 py-2 bg-gray-100 dark:bg-gray-800">
+                    <Badge variant="secondary" className="text-sm px-4 py-2 bg-muted dark:bg-muted/50">
                       <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-500" /> Day Done
                     </Badge>
                   )}
@@ -2649,6 +2817,48 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
 
       {/* Quick Stats */}
       <QuickStatsCard todayTransactions={todayTransactions || []} weekTransactions={weekTransactions || []} />
+
+      {/* ─── TODAY'S HIGHLIGHT ────────────────────────────── */}
+      {authUser && (todayTransactions || []).length > 0 && (() => {
+        const topService = [...(todayTransactions || [])].sort((a, b) => (b.servicePrice || 0) - (a.servicePrice || 0))[0];
+        if (!topService) return null;
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="shadow-sm border border-rose-100 dark:border-rose-900/40 bg-gradient-to-r from-rose-50/50 via-pink-50/30 to-fuchsia-50/30 dark:from-rose-950/10 dark:via-pink-950/5 dark:to-fuchsia-950/5 overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-sm">
+                      <Trophy className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold">Today&apos;s Highlight</h3>
+                      <p className="text-[10px] text-muted-foreground">Top service today</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-gradient-to-r from-rose-500 to-pink-600 text-white border-0 text-[10px]">
+                    {topService.paymentMethod === 'CASH' ? '💵 Cash' : topService.paymentMethod === 'ONLINE' ? '💳 Online' : '✂️ Split'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{topService.service?.name}</p>
+                    <p className="text-xs text-muted-foreground">{topService.service?.category} &bull; {topService.customer?.name || 'Customer'}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">{formatCurrency(topService.servicePrice || 0)}</p>
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">+{formatCurrency(topService.employeeNetShare)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        );
+      })()}
 
       {/* ─── TODAY'S CUSTOMER TRACKING (Old vs New) ──────── */}
       {authUser && (newCustomerCount > 0 || oldCustomerCount > 0) && (
@@ -2781,7 +2991,7 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                   <div key={apt.id} className={`hover:scale-[1.005] transition-transform
                     flex items-center gap-4 p-3 rounded-xl border transition-all ${
                       isCompleted ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' :
-                      'bg-white dark:bg-gray-900 hover:shadow-md border-gray-200 dark:border-gray-700'
+                      'bg-card hover:shadow-md border-border'
                     }`}>
                     <div className="text-center min-w-[60px]">
                       <p className="text-sm font-bold">{formatTime(apt.time)}</p>
@@ -2942,10 +3152,11 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setServiceEntryOpen(true)}
-          className="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center hover:shadow-2xl hover:shadow-rose-500/40 transition-shadow"
+          className="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center hover:shadow-2xl hover:shadow-rose-500/40 transition-shadow group"
           title="New Service Entry"
         >
-          <Plus className="w-7 h-7" />
+          <span className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 animate-pulse-ring opacity-30" />
+          <Plus className="w-7 h-7 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
         </motion.button>
       )}
     </div>
@@ -3928,7 +4139,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex-1 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-sm h-9 shadow-md shadow-rose-500/20"
+            className="flex-1 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-sm h-9 shadow-md shadow-rose-500/20 relative overflow-hidden group"
           >
             {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Record Service</>}
           </Button>
@@ -4224,7 +4435,7 @@ function ManagerExpenseSection({ storeId }: { storeId: string }) {
                   {exp.category === 'SUPPLIES' && <Package className="w-4 h-4 text-violet-500" />}
                   {exp.category === 'MAINTENANCE' && <Wrench className="w-4 h-4 text-orange-500" />}
                   {exp.category === 'MARKETING' && <Flame className="w-4 h-4 text-pink-500" />}
-                  {exp.category === 'OTHER' && <FileText className="w-4 h-4 text-gray-500" />}
+                  {exp.category === 'OTHER' && <FileText className="w-4 h-4 text-muted-foreground" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -4353,7 +4564,7 @@ function ManagerCustomerSection({ storeId }: { storeId: string }) {
             <EmptyState icon={Users} title={searchQuery ? 'No customers found' : 'No customers yet'} description={searchQuery ? 'Try a different search term' : 'Add your first customer to get started'} />
           ) : (
             <ScrollArea className="max-h-96">
-              <div className="overflow-x-auto rounded-xl">
+              <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
                 <Table>
                   <TableHeader>
                     <TableRow className="sticky top-0 bg-background">
@@ -4687,7 +4898,7 @@ function OwnerCustomerAnalyticsSection() {
           {analytics.topCustomers.length === 0 ? (
             <EmptyState icon={Users} title="No spending data" description="Customer spending data will appear as transactions are completed" />
           ) : (
-            <div className="overflow-x-auto rounded-xl">
+            <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
               <Table>
                 <TableHeader>
                   <TableRow className="sticky top-0 bg-background">
@@ -4998,7 +5209,7 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
           !appointments || appointments.length === 0 ? (
             <EmptyState icon={Calendar} title="No appointments today" description="No appointments scheduled for this store" />
           ) : (
-            <div className="overflow-x-auto rounded-xl">
+            <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
               <Table>
                 <TableHeader>
                   <TableRow className="sticky top-0 bg-background">
@@ -5150,6 +5361,19 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
       <div id="mgr-day-close" className="scroll-mt-36">
       <ManagerDayCloseSection storeId={activeStoreId} authUser={authUser} />
       </div>
+
+      {/* ─── QUICK ACTIONS FAB ───────────────────────────────── */}
+      <ManagerQuickActionsFAB
+        onNewAppointment={() => setNewApptDialogOpen(true)}
+        onRecordWalkIn={() => {
+          const el = document.getElementById('mgr-walkin');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onMarkAttendance={() => {
+          const el = document.getElementById('mgr-staff');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 }
@@ -5157,6 +5381,88 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
 // ═══════════════════════════════════════════════════════════════════
 // MANAGER DAY TRANSACTIONS (Payment Method)
 // ═══════════════════════════════════════════════════════════════════
+
+// ─── QUICK ACTIONS FAB ──────────────────────────────────────────
+function ManagerQuickActionsFAB({
+  onNewAppointment,
+  onRecordWalkIn,
+  onMarkAttendance,
+}: {
+  onNewAppointment: () => void;
+  onRecordWalkIn: () => void;
+  onMarkAttendance: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const actions = [
+    { icon: Calendar, label: 'New Appointment', color: 'bg-rose-500 hover:bg-rose-600', onClick: onNewAppointment },
+    { icon: Footprints, label: 'Record Walk-in', color: 'bg-pink-500 hover:bg-pink-600', onClick: onRecordWalkIn },
+    { icon: ClipboardCheck, label: 'Mark Attendance', color: 'bg-fuchsia-500 hover:bg-fuchsia-600', onClick: onMarkAttendance },
+  ];
+
+  // Close on click outside
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = () => setExpanded(false);
+    // Use timeout to avoid closing immediately
+    const timer = setTimeout(() => document.addEventListener('click', handler), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handler);
+    };
+  }, [expanded]);
+
+  return (
+    <div className="fixed bottom-24 right-6 z-40 lg:bottom-8">
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-16 right-0 flex flex-col-reverse items-end gap-3 mb-3"
+          >
+            {actions.map((action, i) => (
+              <motion.div
+                key={action.label}
+                initial={{ opacity: 0, x: 20, y: 10 }}
+                animate={{ opacity: 1, x: 0, y: 0 }}
+                exit={{ opacity: 0, x: 20, y: 10 }}
+                transition={{ delay: (actions.length - 1 - i) * 0.05, duration: 0.15 }}
+                className="flex items-center gap-2"
+              >
+                <span className="text-xs font-medium text-muted-foreground bg-background/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-border/50 whitespace-nowrap">
+                  {action.label}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); action.onClick(); setExpanded(false); }}
+                  className={`w-11 h-11 rounded-full ${action.color} text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95`}
+                  aria-label={action.label}
+                >
+                  <action.icon className="w-5 h-5" />
+                </button>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className={`w-14 h-14 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center transition-all duration-300 ${
+          expanded ? 'rotate-45' : ''
+        }`}
+        aria-label="Quick Actions"
+      >
+        <Plus className="w-6 h-6" />
+      </motion.button>
+    </div>
+  );
+}
+
 function ManagerDayTransactionsSection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const { data: transactions, refetch } = useFetch<Transaction[]>(
@@ -6497,7 +6803,7 @@ function ExpenseTracker({ monthAnalytics }: { monthAnalytics: AnalyticsData | nu
           ) : !expenses || expenses.length === 0 ? (
             <EmptyState icon={Receipt} title="No expenses recorded" description="Track your salon expenses to manage profitability" />
           ) : (
-            <div className="overflow-x-auto rounded-xl">
+            <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
               <Table>
                 <TableHeader>
                   <TableRow className="sticky top-0 bg-background">
@@ -7027,7 +7333,7 @@ function OwnerExpenseSection({ monthAnalytics }: { monthAnalytics: AnalyticsData
                 <button key={key} onClick={() => setDateRange(key)}
                   className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all duration-200 ${
                     dateRange === key
-                      ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                      ? 'bg-background text-rose-600 dark:text-rose-400 shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}>
                   {label}
@@ -7179,7 +7485,7 @@ function OwnerExpenseSection({ monthAnalytics }: { monthAnalytics: AnalyticsData
           ) : !expenses || expenses.length === 0 ? (
             <EmptyState icon={Receipt} title="No expenses found" description="No expenses match the selected filters. Try adjusting the date range or filters." />
           ) : (
-            <div className="overflow-x-auto rounded-xl border">
+            <div className="overflow-x-auto rounded-xl border table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
               <Table>
                 <TableHeader>
                   <TableRow className="sticky top-0 bg-background">
@@ -7267,6 +7573,146 @@ function OwnerExpenseSection({ monthAnalytics }: { monthAnalytics: AnalyticsData
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ─── EMPLOYEE PERFORMANCE LEADERBOARD ──────────────────────────
+function EmployeeLeaderboard({ employees, performance }: {
+  employees: Employee[];
+  performance: Array<{
+    employeeId: string; employeeName: string; transactions: number;
+    totalRevenue: number; totalEarnings: number; avgPerTransaction: number;
+  }>;
+}) {
+  const ranked = useMemo(() => {
+    return [...performance]
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .map((emp, i) => {
+        const empData = employees.find(e => e.id === emp.employeeId);
+        const storeName = empData?.store?.name || 'Unknown';
+        // Simulate trend: random improvement for demo
+        const trendSeed = emp.employeeId.charCodeAt(0) + emp.employeeId.charCodeAt(1);
+        const trendDir = trendSeed % 3 === 0 ? 'up' : trendSeed % 3 === 1 ? 'down' : 'neutral';
+        const trendPct = (trendSeed % 15) + 5;
+        return { ...emp, rank: i + 1, storeName, trend: trendDir as 'up' | 'down' | 'neutral', trendPct };
+      });
+  }, [performance, employees]);
+
+  const medalConfig = [
+    { emoji: '🥇', label: '1st', ring: 'ring-amber-400', bg: 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40', border: 'border-amber-200 dark:border-amber-700' },
+    { emoji: '🥈', label: '2nd', ring: 'ring-gray-400', bg: 'bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/40 dark:to-slate-950/40', border: 'border-gray-200 dark:border-gray-600' },
+    { emoji: '🥉', label: '3rd', ring: 'ring-orange-400', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40', border: 'border-orange-200 dark:border-orange-700' },
+  ];
+
+  return (
+    <GlassCard>
+      <CardContent className="p-0">
+        <div className="p-5 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-sm">
+                <Trophy className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">Employee Leaderboard</h3>
+                <p className="text-xs text-muted-foreground">Top performers this month across all stores</p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800">
+              <Medal className="w-3 h-3 mr-1" />
+              {ranked.length} Employees
+            </Badge>
+          </div>
+        </div>
+
+        {ranked.length === 0 ? (
+          <div className="p-6">
+            <EmptyState icon={Trophy} title="No performance data yet" description="Data will appear as employees complete services" />
+          </div>
+        ) : (
+          <div className="px-5 pb-5 space-y-2">
+            {ranked.map((emp) => {
+              const isTop3 = emp.rank <= 3;
+              const medal = isTop3 ? medalConfig[emp.rank - 1] : null;
+              return (
+                <motion.div
+                  key={emp.employeeId}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: emp.rank * 0.05, duration: 0.3 }}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 hover:shadow-md ${
+                    isTop3
+                      ? `${medal!.bg} ${medal!.border} border`
+                      : 'hover:bg-muted/30 border-transparent'
+                  }`}
+                >
+                  {/* Rank */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
+                    isTop3 ? `${medal!.ring} ring-2` : 'bg-muted/50'
+                  }`}>
+                    {isTop3 ? medal!.emoji : <span className="text-muted-foreground">{emp.rank}</span>}
+                  </div>
+
+                  {/* Avatar */}
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback className={`text-xs font-semibold ${
+                      emp.rank === 1
+                        ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white'
+                        : emp.rank === 2
+                        ? 'bg-gradient-to-br from-gray-300 to-slate-400 text-white'
+                        : emp.rank === 3
+                        ? 'bg-gradient-to-br from-orange-400 to-amber-500 text-white'
+                        : 'bg-muted'
+                    }`}>
+                      {getInitials(emp.employeeName)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Name + Store */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{emp.employeeName}</p>
+                      {emp.trend === 'up' && (
+                        <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <TrendingUp className="w-3 h-3 mr-0.5" />{emp.trendPct}%
+                        </span>
+                      )}
+                      {emp.trend === 'down' && (
+                        <span className="inline-flex items-center text-[10px] font-semibold text-red-500 dark:text-red-400">
+                          <TrendingDown className="w-3 h-3 mr-0.5" />{emp.trendPct}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Store className="w-3 h-3" />
+                      <span className="truncate">{emp.storeName}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="hidden sm:flex items-center gap-4 text-right shrink-0">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Services</p>
+                      <p className="text-sm font-semibold">{emp.transactions}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Revenue</p>
+                      <p className="text-sm font-semibold">{formatCurrency(emp.totalRevenue)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">Earnings</p>
+                    <p className={`text-sm font-bold ${emp.totalEarnings >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {formatCurrency(emp.totalEarnings)}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </GlassCard>
   );
 }
 
@@ -7462,7 +7908,7 @@ function OwnerView() {
                     <button key={key} onClick={() => setAnalyticsRange(key)}
                       className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all duration-200 ${
                         analyticsRange === key
-                          ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                          ? 'bg-background text-rose-600 dark:text-rose-400 shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}>
                       {label}
@@ -7522,10 +7968,75 @@ function OwnerView() {
       </div>
       </div>{/* end owner-overview */}
 
+      {/* Service Popularity Enhanced Chart */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
+        <GlassCard>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-sm">
+                  <Flame className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">Top Services by Bookings</h3>
+                  <p className="text-xs text-muted-foreground">Most popular services by booking count & revenue</p>
+                </div>
+              </div>
+            </div>
+            {serviceChartData.length === 0 ? (
+              <EmptyState icon={Layers} title="No service data yet" description="Popularity data will appear as bookings are made" />
+            ) : (
+              <div className="space-y-3">
+                <ResponsiveContainer width="100%" height={Math.max(serviceChartData.length * 48, 200)}>
+                  <BarChart data={serviceChartData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
+                    <RTooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
+                        return [value, 'Bookings'];
+                      }}
+                    />
+                    <Bar dataKey="count" name="count" fill="#f43f5e" radius={[0, 6, 6, 0]} barSize={24}>
+                      {serviceChartData.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={index === 0 ? '#f43f5e' : index === 1 ? '#fb7185' : index === 2 ? '#fda4af' : '#fecdd3'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                {/* Revenue badges */}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {serviceChartData.slice(0, 5).map((s, i) => (
+                    <div key={s.name} className="flex items-center gap-1.5 text-xs bg-muted/50 dark:bg-muted/20 rounded-full px-2.5 py-1">
+                      <span className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-rose-500' : i === 1 ? 'bg-rose-400' : i === 2 ? 'bg-rose-300' : 'bg-rose-200 dark:bg-rose-700'}`} />
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground">{s.count} bookings</span>
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">{formatCurrency(s.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </GlassCard>
+      </motion.div>
+
       {/* Store Comparison */}
       <div id="owner-stores" className="scroll-mt-36">
       <StoreComparisonDashboard onSelectStore={(storeId) => setSelectedBranchId(storeId)} />
       </div>
+
+      {/* Employee Performance Leaderboard */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+        <EmployeeLeaderboard
+          employees={employees || []}
+          performance={(monthAnalytics || yearAnalytics)?.employeePerformance || []}
+        />
+      </motion.div>
 
       {/* Customer Analytics */}
       <div id="owner-customers" className="scroll-mt-36">
@@ -7553,12 +8064,12 @@ function OwnerView() {
           {!(yearAnalytics || monthAnalytics)?.employeePerformance?.length ? (
             <EmptyState icon={Users} title="No performance data" description="Data will appear as employees complete services" />
           ) : (
-            <div className="overflow-x-auto rounded-xl">
-              <Table>
-                <TableHeader>
-                  <TableRow className="sticky top-0 bg-background">
-                    <TableHead className="w-8">#</TableHead>
-                    <TableHead>Employee</TableHead>
+            <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="sticky top-0 bg-background">
+                      <TableHead className="w-8">#</TableHead>
+                      <TableHead>Employee</TableHead>
                     <TableHead className="text-right">Services</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
                     <TableHead className="text-right">Earnings</TableHead>
@@ -7663,7 +8174,7 @@ function OwnerView() {
               {/* Breakdown Table */}
               {settlementData.breakdown.length > 0 && (
                 <>
-                  <div className="overflow-x-auto rounded-xl">
+                  <div className="overflow-x-auto rounded-xl table-scroll-container -mx-4 px-4 sm:mx-0 sm:px-0">
                     <Table>
                       <TableHeader>
                         <TableRow className="sticky top-0 bg-background">
@@ -7680,7 +8191,7 @@ function OwnerView() {
                       </TableHeader>
                       <TableBody>
                         {settlementData.breakdown.map((b, idx) => (
-                          <TableRow key={b.appointmentId} className={`${idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-muted/30 dark:bg-muted/10'} hover:bg-muted/50 transition-colors`}>
+                          <TableRow key={b.appointmentId} className={`${idx % 2 === 0 ? 'bg-card' : 'bg-muted/30 dark:bg-muted/10'} hover:bg-muted/50 transition-colors`}>
                             <TableCell className="text-xs">{b.date}</TableCell>
                             <TableCell className="text-sm">{b.customerName}</TableCell>
                             <TableCell className="text-sm">{b.serviceName}</TableCell>
@@ -7855,7 +8366,7 @@ function OwnerServiceCatalogSection() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium">{svc.name}</p>
                   <Badge variant="outline" className="text-[10px]">{svc.category}</Badge>
-                  {!svc.isActive && <Badge className="bg-gray-100 text-gray-500">Inactive</Badge>}
+                  {!svc.isActive && <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">Inactive</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">{formatCurrency(svc.price)} • {svc.duration}min</p>
               </div>

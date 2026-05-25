@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { format } from 'date-fns'
+import { mapAppointment, mapTransaction } from '@/lib/prisma-map'
 
 // POST /api/salon/service-entry
 // Create a complete service entry (appointment + transaction) in one shot
@@ -148,10 +149,10 @@ export async function POST(request: NextRequest) {
           notes: 'Direct service entry',
         },
         include: {
-          customer: true,
+          Customer: true,
           Store: true,
-          employee: true,
-          service: true,
+          Employee: true,
+          Service: true,
         },
       })
 
@@ -171,16 +172,16 @@ export async function POST(request: NextRequest) {
           cashAmount,
           onlineAmount,
           completedAt: new Date(),
-          productsUsed: {
+          TransactionProduct: {
             create: transactionProductsData,
           },
         },
         include: {
-          employee: true,
-          service: true,
+          Employee: true,
+          Service: true,
           Store: true,
-          productsUsed: {
-            include: { product: true },
+          TransactionProduct: {
+            include: { Product: true },
           },
         },
       })
@@ -211,8 +212,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        appointment: result.appointment,
-        transaction: result.transaction,
+        appointment: mapAppointment(result.appointment),
+        transaction: mapTransaction(result.transaction),
         isNewCustomer,
         customer,
       },

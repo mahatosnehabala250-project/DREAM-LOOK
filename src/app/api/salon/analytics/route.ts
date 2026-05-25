@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     const transactions = await db.transaction.findMany({
       where,
       include: {
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
         Store: true,
       },
       orderBy: { completedAt: 'asc' },
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         existing.revenue += t.servicePrice
       } else {
         serviceMap.set(key, {
-          serviceName: t.service.name,
+          serviceName: t.Service.name,
           count: 1,
           revenue: t.servicePrice,
         })
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       } else {
         empMap.set(t.employeeId, {
           employeeId: t.employeeId,
-          employeeName: t.employee.name,
+          employeeName: t.Employee.name,
           transactions: 1,
           totalRevenue: t.servicePrice,
           totalEarnings: t.employeeNetShare,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { mapAuditLog } from '@/lib/prisma-map';
 
 // GET /api/salon/audit-logs?branchId=&action=&limit=
 export async function GET(req: NextRequest) {
@@ -16,12 +17,12 @@ export async function GET(req: NextRequest) {
     const logs = await db.auditLog.findMany({
       where,
       include: {
-        employee: { select: { id: true, name: true, role: true, avatar: true } },
+        Employee: { select: { id: true, name: true, role: true, avatar: true } },
       },
       orderBy: [{ timestamp: 'desc' }],
       take: limit,
     });
-    return NextResponse.json(logs);
+    return NextResponse.json(logs.map(mapAuditLog));
   } catch (error) {
     console.log('[audit-logs] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);

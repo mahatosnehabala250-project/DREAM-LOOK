@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { format } from 'date-fns'
+import { mapAppointment } from '@/lib/prisma-map'
 
 // GET /api/salon/walkin?storeId=STORE_ID&date=YYYY-MM-DD&status=WALK_IN
 // Fetch walk-in queue for a store and date
@@ -21,15 +22,15 @@ export async function GET(request: NextRequest) {
     const walkins = await db.appointment.findMany({
       where,
       include: {
-        employee: true,
-        service: true,
-        customer: true,
+        Employee: true,
+        Service: true,
+        Customer: true,
         Store: true,
       },
       orderBy: { createdAt: 'asc' },
     })
 
-    return NextResponse.json(walkins)
+    return NextResponse.json(walkins.map(mapAppointment))
   } catch (error) {
     console.log('[walkin] SQLite not available, falling back to Firestore...')
     try {
@@ -166,14 +167,14 @@ export async function POST(request: NextRequest) {
         notes: appointmentNotes,
       },
       include: {
-        customer: true,
+        Customer: true,
         Store: true,
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
       },
     })
 
-    return NextResponse.json(appointment, { status: 201 })
+    return NextResponse.json(mapAppointment(appointment), { status: 201 })
   } catch (error) {
     console.log('[walkin] SQLite not available, falling back to Firestore...')
     try {
@@ -322,14 +323,14 @@ export async function PATCH(request: NextRequest) {
       where: { id: appointmentId as string },
       data: { status: status as string },
       include: {
-        customer: true,
+        Customer: true,
         Store: true,
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
       },
     })
 
-    return NextResponse.json(updatedAppointment)
+    return NextResponse.json(mapAppointment(updatedAppointment))
   } catch (error) {
     console.log('[walkin] SQLite not available, falling back to Firestore...')
     try {

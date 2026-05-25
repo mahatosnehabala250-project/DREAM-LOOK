@@ -87,12 +87,12 @@ async function buildEmployeeSettlement(
       },
     },
     include: {
-      appointment: {
-        include: { customer: true },
+      Appointment: {
+        include: { Customer: true },
       },
-      service: true,
-      productsUsed: {
-        include: { product: true },
+      Service: true,
+      TransactionProduct: {
+        include: { Product: true },
       },
     },
     orderBy: { completedAt: 'asc' },
@@ -124,8 +124,8 @@ async function buildEmployeeSettlement(
 
   // Build breakdown
   const breakdown = transactions.map((t) => {
-    const productsUsed = t.productsUsed.map((tp) => ({
-      name: tp.product.name,
+    const productsUsed = t.TransactionProduct.map((tp) => ({
+      name: tp.Product.name,
       qty: tp.quantityUsed,
       cost: tp.totalCost,
     }))
@@ -135,8 +135,8 @@ async function buildEmployeeSettlement(
     return {
       date: t.completedAt.toISOString().split('T')[0],
       appointmentId: t.appointmentId,
-      customerName: t.appointment?.customer?.name || 'Unknown',
-      serviceName: t.service.name,
+      customerName: t.Appointment?.Customer?.name || 'Unknown',
+      serviceName: t.Service.name,
       servicePrice: t.servicePrice,
       ownerShare: t.ownerShare,
       employeeGross: t.employeeGrossShare,

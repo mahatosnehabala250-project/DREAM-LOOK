@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapInventory } from '@/lib/prisma-map'
 
 export async function PATCH(
   request: NextRequest,
@@ -21,15 +22,15 @@ export async function PATCH(
       where: { id },
       data: { quantity },
       include: {
-        product: true,
+        Product: true,
         Store: true,
       },
     })
 
-    const enriched = {
+    const enriched = mapInventory({
       ...inventory,
       isLow: inventory.quantity < inventory.reorderLevel,
-    }
+    })
 
     return NextResponse.json(enriched)
   } catch (error) {

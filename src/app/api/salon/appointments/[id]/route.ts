@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapAppointment } from '@/lib/prisma-map'
 
 export async function PATCH(
   request: NextRequest,
@@ -21,14 +22,14 @@ export async function PATCH(
       where: { id },
       data: { status },
       include: {
-        customer: true,
+        Customer: true,
         Store: true,
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
       },
     })
 
-    return NextResponse.json(appointment)
+    return NextResponse.json(mapAppointment(appointment))
   } catch (error) {
     console.error('Error updating appointment:', error)
     return NextResponse.json(

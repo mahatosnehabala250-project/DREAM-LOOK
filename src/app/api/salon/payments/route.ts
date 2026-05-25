@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { mapPayment } from '@/lib/prisma-map';
 
 // GET /api/salon/payments?branchId=&employeeId=&month=
 export async function GET(req: NextRequest) {
@@ -17,12 +18,12 @@ export async function GET(req: NextRequest) {
     const payments = await db.payment.findMany({
       where,
       include: {
-        employee: { select: { id: true, name: true, role: true, avatar: true } },
+        Employee: { select: { id: true, name: true, role: true, avatar: true } },
         Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
-    return NextResponse.json(payments);
+    return NextResponse.json(payments.map(mapPayment));
   } catch (error) {
     console.log('[payments] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
@@ -41,10 +42,10 @@ export async function POST(req: NextRequest) {
 
     const payment = await db.payment.create({
       data: { employeeId, branchId, date, earnedAmount, advanceDeducted: advanceDeducted || 0, netPaid, paymentMethod: paymentMethod || 'CASH', paidBy },
-      include: { employee: true, Store: true },
+      include: { Employee: true, Store: true },
     });
 
-    return NextResponse.json(payment, { status: 201 });
+    return NextResponse.json(mapPayment(payment), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
   }

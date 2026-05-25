@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapAttendance } from '@/lib/prisma-map'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,13 +16,13 @@ export async function GET(request: NextRequest) {
         ...(employeeId ? { employeeId } : {}),
       },
       include: {
-        employee: true,
+        Employee: true,
         Store: true,
       },
       orderBy: [{ date: 'desc' }, { checkIn: 'asc' }],
     })
 
-    return NextResponse.json(attendance)
+    return NextResponse.json(attendance.map(mapAttendance))
   } catch {
     console.log('[Attendance] SQLite not available, falling back to Firestore...')
     try {
@@ -109,12 +110,12 @@ export async function POST(request: NextRequest) {
         status: (status as string) || 'PRESENT',
       },
       include: {
-        employee: true,
+        Employee: true,
         Store: true,
       },
     })
 
-    return NextResponse.json(attendance, { status: 201 })
+    return NextResponse.json(mapAttendance(attendance), { status: 201 })
   } catch {
     console.log('[Attendance] SQLite not available, falling back to Firestore...')
     try {

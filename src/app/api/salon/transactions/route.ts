@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapTransaction, mapAppointment } from '@/lib/prisma-map'
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,17 +22,17 @@ export async function GET(request: NextRequest) {
     const transactions = await db.transaction.findMany({
       where,
       include: {
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
         Store: true,
-        productsUsed: {
-          include: { product: true },
+        TransactionProduct: {
+          include: { Product: true },
         },
       },
       orderBy: { completedAt: 'desc' },
     })
 
-    return NextResponse.json(transactions)
+    return NextResponse.json(transactions.map(mapTransaction))
   } catch (error) {
     console.log('[Transactions] SQLite not available, falling back to Firestore...');
     try {
@@ -101,10 +102,11 @@ export async function POST(request: NextRequest) {
     const appointment = await db.appointment.findUnique({
       where: { id: appointmentId },
       include: {
-        service: true,
-        employee: true,
+        Service: true,
+        Employee: true,
         Store: true,
-        customer: true,
+        Customer: true,
+        Transaction: true,
       },
     })
 
@@ -115,14 +117,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (appointment.transaction) {
+    if (appointment.Transaction) {
       return NextResponse.json(
         { error: 'Transaction already exists for this appointment' },
         { status: 400 }
       )
     }
 
-    const servicePrice = appointment.service.price
+    const servicePrice = appointment.Service.price
     const ownerShare = servicePrice * 0.5
     const employeeGrossShare = servicePrice * 0.5
 
@@ -177,16 +179,16 @@ export async function POST(request: NextRequest) {
           totalProductCost,
           employeeNetShare,
           completedAt: new Date(),
-          productsUsed: {
+          TransactionProduct: {
             create: transactionProductsData,
           },
         },
         include: {
-          employee: true,
-          service: true,
+          Employee: true,
+          Service: true,
           Store: true,
-          productsUsed: {
-            include: { product: true },
+          TransactionProduct: {
+            include: { Product: true },
           },
         },
       })
@@ -219,7 +221,7 @@ export async function POST(request: NextRequest) {
       return newTransaction
     })
 
-    return NextResponse.json(transaction, { status: 201 })
+    return NextResponse.json(mapTransaction(transaction), { status: 201 })
   } catch (error) {
     console.error('Error creating transaction:', error)
     return NextResponse.json(

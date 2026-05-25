@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapAppointment } from '@/lib/prisma-map'
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
       },
       include: {
-        customer: true,
+        Customer: true,
         Store: true,
-        employee: true,
-        service: true,
+        Employee: true,
+        Service: true,
       },
     })
 
-    return NextResponse.json(appointment, { status: 201 })
+    return NextResponse.json(mapAppointment(appointment), { status: 201 })
   } catch (error) {
     console.error('Error creating appointment:', error)
     return NextResponse.json(

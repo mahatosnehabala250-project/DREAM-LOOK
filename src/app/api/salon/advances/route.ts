@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { mapAdvance } from '@/lib/prisma-map';
 
 // GET /api/salon/advances?branchId=&employeeId=&status=
 export async function GET(req: NextRequest) {
@@ -17,12 +18,12 @@ export async function GET(req: NextRequest) {
     const advances = await db.advance.findMany({
       where,
       include: {
-        employee: { select: { id: true, name: true, role: true, avatar: true } },
+        Employee: { select: { id: true, name: true, role: true, avatar: true } },
         Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
-    return NextResponse.json(advances);
+    return NextResponse.json(advances.map(mapAdvance));
   } catch (error) {
     console.log('[advances] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
         employeeId, branchId, amount, reason, date: new Date().toISOString().slice(0, 10),
         recoveredAmount: 0, remainingAmount: amount, givenBy, status: 'ACTIVE',
       },
-      include: { employee: true, Store: true },
+      include: { Employee: true, Store: true },
     });
 
     // Audit log
@@ -52,13 +53,13 @@ export async function POST(req: NextRequest) {
       data: {
         action: 'ADVANCE_GIVEN',
         performedBy: givenBy,
-        targetData: JSON.stringify({ advanceId: advance.id, employeeName: advance.employee.name }),
+        targetData: JSON.stringify({ advanceId: advance.id, employeeName: advance.Employee.name }),
         newValue: JSON.stringify({ amount, reason }),
         branchId,
       },
     });
 
-    return NextResponse.json(advance, { status: 201 });
+    return NextResponse.json(mapAdvance(advance), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create advance' }, { status: 500 });
   }
@@ -84,10 +85,10 @@ export async function PATCH(req: NextRequest) {
     const updated = await db.advance.update({
       where: { id: advanceId },
       data: { recoveredAmount: newRecovered, remainingAmount: Math.max(0, remaining), status: newStatus },
-      include: { employee: true, Store: true },
+      include: { Employee: true, Store: true },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(mapAdvance(updated));
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update advance' }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { mapLeave } from '@/lib/prisma-map';
 
 // GET /api/salon/leaves?branchId=&status=
 export async function GET(req: NextRequest) {
@@ -17,12 +18,12 @@ export async function GET(req: NextRequest) {
     const leaves = await db.leave.findMany({
       where,
       include: {
-        employee: { select: { id: true, name: true, role: true, avatar: true } },
+        Employee: { select: { id: true, name: true, role: true, avatar: true } },
         Store: { select: { id: true, name: true } },
       },
       orderBy: [{ date: 'desc' }],
     });
-    return NextResponse.json(leaves);
+    return NextResponse.json(leaves.map(mapLeave));
   } catch (error) {
     console.log('[leaves] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     const leave = await db.leave.create({
       data: { employeeId, branchId, date, reason, status: 'PENDING' },
-      include: { employee: true, Store: true },
+      include: { Employee: true, Store: true },
     });
 
     // Create audit log
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(leave, { status: 201 });
+    return NextResponse.json(mapLeave(leave), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create leave' }, { status: 500 });
   }
@@ -79,7 +80,7 @@ export async function PATCH(req: NextRequest) {
     const leave = await db.leave.update({
       where: { id: leaveId },
       data: { status, reviewedBy, reviewedAt: new Date() },
-      include: { employee: true, Store: true },
+      include: { Employee: true, Store: true },
     });
 
     // Create audit log
@@ -87,14 +88,14 @@ export async function PATCH(req: NextRequest) {
       data: {
         action: 'LEAVE_STATUS',
         performedBy: reviewedBy,
-        targetData: JSON.stringify({ leaveId, employeeName: leave.employee.name, date: leave.date }),
+        targetData: JSON.stringify({ leaveId, employeeName: leave.Employee.name, date: leave.date }),
         oldValue: 'PENDING',
         newValue: status,
         branchId: leave.branchId,
       },
     });
 
-    return NextResponse.json(leave);
+    return NextResponse.json(mapLeave(leave));
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update leave' }, { status: 500 });
   }

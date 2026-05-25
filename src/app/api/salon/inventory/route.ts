@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { mapInventory } from '@/lib/prisma-map'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,14 +12,14 @@ export async function GET(request: NextRequest) {
         ...(storeId ? { storeId } : {}),
       },
       include: {
-        product: true,
+        Product: true,
         Store: true,
       },
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Add computed isLow field
-    const enriched = inventory.map((item) => ({
+    // Add computed isLow field and map PascalCase to camelCase
+    const enriched = inventory.map((item) => mapInventory({
       ...item,
       isLow: item.quantity < item.reorderLevel,
     }))
