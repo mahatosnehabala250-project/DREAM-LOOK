@@ -14,7 +14,7 @@ import {
   Plus, ArrowUp, ArrowDown, Calculator, Star,
   Bell, Trophy, Activity, History, ChevronDown, Eye, EyeOff,
   Receipt, Percent, Wallet, CircleDot, Flame, Store, XCircle,
-  Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote,
+  Lock, Unlock, UserCheck, UserX, HandCoins, CreditCard, Banknote, Smartphone,
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
   Wrench, Mail, Medal, Settings, UserCircle, HelpCircle,
   MessageSquare, ExternalLink, LifeBuoy, Info, Trash2, Pencil, Save,
@@ -3389,6 +3389,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
   const [customerLookupDone, setCustomerLookupDone] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('ALL');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ONLINE' | 'SPLIT'>('CASH');
   const [selectedProducts, setSelectedProducts] = useState<Record<string, boolean>>({});
   const [productQty, setProductQty] = useState<Record<string, number>>({});
@@ -3396,6 +3397,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
   const [lookingUp, setLookingUp] = useState(false);
 
   const activeServices = useMemo(() => (services || []).filter(s => s.isActive), [services]);
+  const filteredServices = useMemo(() => serviceFilter === 'ALL' ? activeServices : activeServices.filter(s => s.category === serviceFilter), [activeServices, serviceFilter]);
   const selectedService = activeServices.find(s => s.id === selectedServiceId);
 
   // Commission calculation
@@ -3493,6 +3495,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
       }
       // Reset form
       setCustomerPhone(''); setCustomerName(''); setSelectedServiceId('');
+      setServiceFilter('ALL');
       setExistingCustomer(null); setCustomerLookupDone(false);
       setSelectedProducts({}); setProductQty({}); setPaymentMethod('CASH');
       onSuccess();
@@ -3579,63 +3582,116 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
             </div>
           </div>
 
-          {/* Service Selection */}
+          {/* Service Selection — Clickable Cards */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> Service *
+              <Sparkles className="w-3.5 h-3.5" /> Select Service *
             </Label>
-            <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Select a service" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeServices.map(svc => (
-                  <SelectItem key={svc.id} value={svc.id}>
-                    <div className="flex items-center justify-between gap-4 w-full">
-                      <span>{svc.name}</span>
-                      <span className="text-xs text-muted-foreground font-mono">{formatCurrency(svc.price)}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!services && (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                Loading services...
-              </p>
-            )}
-            {services && activeServices.length === 0 && (
-              <p className="text-xs text-amber-600 text-center py-2">
-                No active services found. Contact manager.
-              </p>
-            )}
-            {selectedService && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40">
-                <span className="text-xs font-medium text-muted-foreground">Service Price</span>
-                <span className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selectedService.price)}</span>
+            {!services ? (
+              <div className="flex items-center justify-center py-6">
+                <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                <span className="text-xs text-muted-foreground">Loading services...</span>
               </div>
+            ) : activeServices.length === 0 ? (
+              <div className="text-center py-6 px-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+                <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+                <p className="text-xs text-amber-600">No active services found. Contact your manager.</p>
+              </div>
+            ) : (
+              <>
+                {/* Category filter chips */}
+                <div className="flex gap-1.5 flex-wrap">
+                  {['ALL', ...Array.from(new Set(activeServices.map(s => s.category)))].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setServiceFilter(cat)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                        serviceFilter === cat
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                {/* Service cards grid */}
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                  {filteredServices.map(svc => (
+                    <button
+                      key={svc.id}
+                      onClick={() => setSelectedServiceId(svc.id)}
+                      className={`relative p-3 rounded-xl text-left transition-all duration-150 border-2 ${
+                        selectedServiceId === svc.id
+                          ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30 shadow-md shadow-rose-500/10'
+                          : 'border-transparent bg-muted/30 hover:bg-muted/50 hover:border-muted-foreground/20'
+                      }`}
+                    >
+                      {selectedServiceId === svc.id && (
+                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <p className="text-xs font-semibold truncate pr-6">{svc.name}</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(svc.price)}</span>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />{svc.duration}m
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground/60 uppercase tracking-wider">{svc.category}</span>
+                    </button>
+                  ))}
+                </div>
+                {selectedService && (
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 border border-rose-100 dark:border-rose-900/40">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">Selected:</span>
+                      <span className="text-xs font-bold text-rose-700 dark:text-rose-300">{selectedService.name}</span>
+                    </div>
+                    <span className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selectedService.price)}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* Payment Method */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" /> Payment Method
+              <Wallet className="w-3.5 h-3.5" /> Payment Method
             </Label>
             <div className="flex gap-2">
-              {(['CASH', 'ONLINE', 'SPLIT'] as const).map(method => (
-                <button
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    paymentMethod === method
-                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {method === 'CASH' ? '💵 Cash' : method === 'ONLINE' ? '📱 Online' : '🔄 Split'}
-                </button>
-              ))}
+              <button
+                onClick={() => setPaymentMethod('CASH')}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'CASH'
+                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-300 dark:ring-emerald-700'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
+                }`}
+              >
+                <Banknote className="w-4 h-4" /> Cash
+              </button>
+              <button
+                onClick={() => setPaymentMethod('ONLINE')}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'ONLINE'
+                    ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-300 dark:ring-blue-700'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" /> Online
+              </button>
+              <button
+                onClick={() => setPaymentMethod('SPLIT')}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'SPLIT'
+                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 ring-2 ring-amber-300 dark:ring-amber-700'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
+                }`}
+              >
+                <Receipt className="w-4 h-4" /> Split
+              </button>
             </div>
           </div>
 
