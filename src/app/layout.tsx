@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
 };
 
-const APP_VERSION = "2026052604";
+const APP_VERSION = "2026052605";
 
 export default function RootLayout({
   children,
@@ -41,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Self-healing cache buster — runs before React loads */}
+        {/* Self-healing cache buster + service worker cleanup — runs before React loads */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
@@ -57,6 +57,12 @@ export default function RootLayout({
       throw new Error("CACHE_BUST");
     }
     localStorage.setItem("dl_app_ver",v);
+    // Unregister any old service workers that might cache stale JS
+    if("serviceWorker"in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){r.unregister()});
+      });
+    }
   } catch(e){if(e.message!=="CACHE_BUST"){}}
 })();`,
           }}

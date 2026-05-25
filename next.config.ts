@@ -38,6 +38,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Prevent caching of ALL static assets (JS, CSS) to avoid stale TDZ code
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/_error",
         headers: [
           {
