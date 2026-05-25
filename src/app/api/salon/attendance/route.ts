@@ -22,28 +22,47 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(attendance)
-  } catch (error) {
-    console.log('[Attendance] SQLite not available, falling back to Firestore...');
+  } catch {
+    console.log('[Attendance] SQLite not available, falling back to Firestore...')
     try {
+      const { searchParams } = new URL(request.url)
+      const storeId = searchParams.get('storeId')
+      const date = searchParams.get('date')
+      const employeeId = searchParams.get('employeeId')
+
       const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
-      const { searchParams } = new URL(request.url);
-      const storeId = searchParams.get('storeId');
-      
-      let query: any = getFirebaseAdmin().firestore().collection('attendance');
-      if (storeId) {
-        query = query.where('storeId', '==', storeId);
-      }
-      
-      const snapshot = await query.get();
-      const attendance = snapshot.docs.map((doc: any) => ({
-        id: doc.id,
-        ...doc.data(),
-        employee: { name: doc.data().employeeName || 'Unknown Staff', role: doc.data().employeeRole || 'STAFF' }
-      }));
-      return NextResponse.json(attendance);
-    } catch (firebaseError) {
-      console.error('Error fetching attendance from Firebase:', firebaseError);
-      return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 });
+      const firestore = getFirebaseAdmin().firestore();
+
+      let query = firestore.collection('attendance')
+      if (employeeId) query = query.where('employeeId', '==', employeeId)
+      if (storeId) query = query.where('storeId', '==', storeId)
+      if (date) query = query.where('date', '==', date)
+
+      const snapshot = await query.get()
+
+      const results = await Promise.all(snapshot.docs.map(async (doc) => {
+        const data = doc.data()
+        let employee: Record<string, unknown> | null = null
+        if (data.employeeId) {
+          try {
+            const empDoc = await firestore.collection('employees').doc(data.employeeId).get()
+            if (empDoc.exists) {
+              employee = { id: empDoc.id, ...empDoc.data() }
+            }
+          } catch {
+            // employee lookup failed, skip
+          }
+        }
+        return { id: doc.id, ...data, employee }
+      }))
+
+      return NextResponse.json(results)
+    } catch (err) {
+      console.error('Error fetching attendance (Firestore):', err)
+      return NextResponse.json(
+        { error: 'Failed to fetch attendance' },
+        { status: 500 }
+      )
     }
   }
 }
@@ -89,11 +108,46 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(attendance, { status: 201 })
-  } catch (error) {
-    console.error('Error creating/updating attendance:', error)
-    return NextResponse.json(
-      { error: 'Failed to create/update attendance' },
-      { status: 500 }
-    )
+  } catch {
+    console.log('[Attendance] SQLite not available, falling back to Firestore...')
+    try {
+      const body = await request.json()
+      const { employeeId, storeId, date, checkIn, checkOut, status } = body
+
+      if (!employeeId || !storeId || !date) {
+        return NextResponse.json(
+          { error: 'employeeId, storeId, and date are required' },
+          { status: 400 }
+        )
+      }
+
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin');
+      const firestore = getFirebaseAdmin().firestore();
+
+      const docId = `${employeeId}_${date}`
+      const docData: Record<string, unknown> = {
+        employeeId,
+        storeId,
+        date,
+        checkIn: checkIn || null,
+        checkOut: checkOut || null,
+        status: status || 'PRESENT',
+        updatedAt: new Date().toISOString(),
+      }
+
+      await firestore.collection('attendance').doc(docId).set(docData, { merge: true })
+
+      // Fetch the merged document to return it
+      const mergedDoc = await firestore.collection('attendance').doc(docId).get()
+      const result = { id: mergedDoc.id, ...mergedDoc.data(), createdAt: (mergedDoc.data() as Record<string, unknown>)?.createdAt || new Date().toISOString() }
+
+      return NextResponse.json(result, { status: 201 })
+    } catch (err) {
+      console.error('Error creating/updating attendance (Firestore):', err)
+      return NextResponse.json(
+        { error: 'Failed to create/update attendance' },
+        { status: 500 }
+      )
+    }
   }
 }

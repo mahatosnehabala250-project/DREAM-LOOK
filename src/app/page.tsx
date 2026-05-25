@@ -2595,6 +2595,15 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
         </motion.div>
       )}
 
+      {/* Quick Service Entry — Floating Card */}
+      {authUser && (
+        <EmployeeQuickServiceEntry
+          employeeId={activeEmployeeId}
+          storeId={authUser.storeId}
+          onSuccess={() => { refetchToday(); refetchSchedule(); }}
+        />
+      )}
+
       {/* Quick Stats */}
       <QuickStatsCard todayTransactions={todayTransactions || []} weekTransactions={weekTransactions || []} />
 
@@ -3245,6 +3254,385 @@ function DailyEarningsSparkline({ transactions }: { transactions: Transaction[] 
         );
       })}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EMPLOYEE QUICK SERVICE ENTRY
+// ═══════════════════════════════════════════════════════════════════
+function EmployeeQuickServiceEntry({ employeeId, storeId, onSuccess }: { employeeId: string; storeId: string; onSuccess: () => void }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      {/* Prominent "+" button card */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Card
+          className="shadow-md cursor-pointer border-2 border-dashed border-rose-300 dark:border-rose-700 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 hover:border-solid hover:border-rose-400 hover:shadow-lg hover:shadow-rose-500/10 transition-all duration-200 group"
+          onClick={() => setDialogOpen(true)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-md shadow-rose-500/20 group-hover:scale-110 transition-transform">
+                  <Plus className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-rose-700 dark:text-rose-300">Quick Service Entry</h3>
+                  <p className="text-xs text-muted-foreground">Record a service for a customer</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground group-hover:text-rose-500 transition-colors">Tap to add</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Dialog */}
+      <QuickServiceEntryDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        employeeId={employeeId}
+        storeId={storeId}
+        onSuccess={() => { setDialogOpen(false); onSuccess(); }}
+      />
+    </>
+  );
+}
+
+// ─── QUICK SERVICE ENTRY DIALOG ──────────────────────────────────
+function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess }: {
+  open: boolean; onClose: () => void; employeeId: string; storeId: string; onSuccess: () => void;
+}) {
+  const { data: services } = useFetch<Service[]>('/api/salon/services');
+  const { data: products } = useFetch<Product[]>('/api/salon/products');
+
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerLookupDone, setCustomerLookupDone] = useState(false);
+  const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ONLINE' | 'SPLIT'>('CASH');
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, boolean>>({});
+  const [productQty, setProductQty] = useState<Record<string, number>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+
+  const activeServices = useMemo(() => (services || []).filter(s => s.isActive), [services]);
+  const selectedService = activeServices.find(s => s.id === selectedServiceId);
+
+  // Commission calculation
+  const commission = useMemo(() => {
+    const price = selectedService?.price || 0;
+    const prodCost = Object.entries(selectedProducts).filter(([k, v]) => v).reduce((sum, [id]) => {
+      const p = (products || []).find(pr => pr.id === id);
+      return sum + (p ? p.cost * (productQty[id] || 1) : 0);
+    }, 0);
+    return {
+      price,
+      ownerShare: price * 0.5,
+      employeeGross: price * 0.5,
+      productCost: prodCost,
+      employeeNet: price * 0.5 - prodCost,
+    };
+  }, [selectedService, selectedProducts, productQty, products]);
+
+  // Phone lookup
+  const handlePhoneLookup = useCallback(async (phone: string) => {
+    if (phone.length < 4) {
+      setCustomerLookupDone(false);
+      setExistingCustomer(null);
+      return;
+    }
+    setLookingUp(true);
+    try {
+      const allCustomers = await (await fetch('/api/salon/customers')).json();
+      const match = allCustomers.find((c: Customer) => c.phone && c.phone.endsWith(phone));
+      if (match) {
+        setExistingCustomer(match);
+        setCustomerName(match.name);
+        setCustomerLookupDone(true);
+      } else {
+        setExistingCustomer(null);
+        setCustomerLookupDone(true);
+      }
+    } catch {
+      setCustomerLookupDone(false);
+    } finally { setLookingUp(false); }
+  }, []);
+
+  // Debounced phone lookup
+  const phoneTimeout = useRef<NodeJS.Timeout | null>(null);
+  const handlePhoneChange = useCallback((val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 10);
+    setCustomerPhone(digits);
+    setCustomerName('');
+    setExistingCustomer(null);
+    setCustomerLookupDone(false);
+    if (phoneTimeout.current) clearTimeout(phoneTimeout.current);
+    if (digits.length >= 4) {
+      phoneTimeout.current = setTimeout(() => handlePhoneLookup(digits), 600);
+    }
+  }, [handlePhoneLookup]);
+
+  const toggleProduct = useCallback((id: string) => {
+    setSelectedProducts(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      if (!next[id]) setProductQty(prev2 => { const n = { ...prev2 }; delete n[id]; return n; });
+      return next;
+    });
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    if (!customerName.trim() || !selectedServiceId) {
+      toast.error('Please fill customer name and select a service');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const prodsUsed = Object.entries(selectedProducts)
+        .filter(([, v]) => v)
+        .map(([id]) => ({ productId: id, quantityUsed: productQty[id] || 1 }));
+
+      const res = await apiPost('/api/salon/service-entry', {
+        employeeId, storeId, serviceId: selectedServiceId,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone || undefined,
+        paymentMethod,
+        productsUsed: prodsUsed,
+      });
+
+      if (res.isNewCustomer) {
+        toast.success('New customer added + Service recorded! 🎉', {
+          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
+        });
+      } else {
+        toast.success('Service recorded for existing customer! ✅', {
+          description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
+        });
+      }
+      // Reset form
+      setCustomerPhone(''); setCustomerName(''); setSelectedServiceId('');
+      setExistingCustomer(null); setCustomerLookupDone(false);
+      setSelectedProducts({}); setProductQty({}); setPaymentMethod('CASH');
+      onSuccess();
+    } catch (e) {
+      toast.error('Failed to record service', { description: (e as Error).message });
+    } finally { setSubmitting(false); }
+  }, [employeeId, storeId, selectedServiceId, customerName, customerPhone, paymentMethod, selectedProducts, productQty, selectedService, onSuccess]);
+
+  const canSubmit = customerName.trim().length > 0 && selectedServiceId.length > 0 && !submitting;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+              <Plus className="w-4 h-4 text-white" />
+            </div>
+            Quick Service Entry
+          </DialogTitle>
+          <DialogDescription>Record a service for a customer (walk-in or existing)</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Customer Section */}
+          <div className="space-y-2 p-3 rounded-xl bg-muted/30 border">
+            <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" /> Customer Details
+            </Label>
+
+            {/* Customer tag */}
+            {customerLookupDone && customerPhone.length >= 4 && (
+              <div className="flex items-center gap-1.5">
+                {existingCustomer ? (
+                  <Badge className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold px-2 py-0.5">
+                    <UserCheck className="w-3 h-3 mr-1" /> Existing Customer
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+                    <UserPlus className="w-3 h-3 mr-1" /> New Customer
+                  </Badge>
+                )}
+                {existingCustomer && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Returning customer — details auto-filled
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-5 gap-2">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Phone</Label>
+                <div className="relative">
+                  <Input
+                    value={customerPhone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder="Mobile no."
+                    className="h-9 text-sm"
+                    type="tel"
+                    inputMode="numeric"
+                  />
+                  {lookingUp && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {existingCustomer && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-3 space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Customer Name *</Label>
+                <Input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Enter customer name"
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Service Selection */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> Service *
+            </Label>
+            <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select a service" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeServices.map(svc => (
+                  <SelectItem key={svc.id} value={svc.id}>
+                    <div className="flex items-center justify-between gap-4 w-full">
+                      <span>{svc.name}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{formatCurrency(svc.price)}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Payment Method */}
+          {selectedServiceId && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5" /> Payment Method
+              </Label>
+              <div className="flex gap-2">
+                {(['CASH', 'ONLINE', 'SPLIT'] as const).map(method => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                      paymentMethod === method
+                        ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {method === 'CASH' ? '💵 Cash' : method === 'ONLINE' ? '📱 Online' : '🔄 Split'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Commission Preview */}
+          {selectedService && (
+            <div className="space-y-1.5 p-3 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Commission Preview</p>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Service Price</span>
+                  <span className="font-medium">{formatCurrency(commission.price)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Owner (50%)</span>
+                  <span>{formatCurrency(commission.ownerShare)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Your Gross (50%)</span>
+                  <span>{formatCurrency(commission.employeeGross)}</span>
+                </div>
+                {commission.productCost > 0 && (
+                  <div className="flex justify-between text-red-500">
+                    <span>Product Costs</span>
+                    <span>-{formatCurrency(commission.productCost)}</span>
+                  </div>
+                )}
+                <Separator className="my-1" />
+                <div className={`flex justify-between font-bold text-sm ${commission.employeeNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <span>Your Net Earnings</span>
+                  <span>{formatCurrency(commission.employeeNet)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Products Used (optional) */}
+          {selectedServiceId && (products || []).length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" /> Products Used <span className="text-[10px] font-normal text-muted-foreground">(optional — deducts from your earnings)</span>
+              </Label>
+              <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                {(products || []).filter(p => p.isActive).map(p => (
+                  <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors">
+                    <Checkbox
+                      checked={!!selectedProducts[p.id]}
+                      onCheckedChange={() => toggleProduct(p.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
+                    {selectedProducts[p.id] && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={productQty[p.id] || 1}
+                          onChange={(e) => setProductQty(prev => ({ ...prev, [p.id]: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="w-12 h-6 text-[10px] text-center border rounded bg-background"
+                        />
+                        <span className="text-[10px] text-muted-foreground">{p.unit}</span>
+                        <span className="text-[10px] text-red-500">-{formatCurrency(p.cost * (productQty[p.id] || 1))}</span>
+                      </div>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">{formatCurrency(p.cost)}/{p.unit}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onClose} className="text-xs h-9">Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="flex-1 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-sm h-9 shadow-md shadow-rose-500/20"
+          >
+            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Record Service</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

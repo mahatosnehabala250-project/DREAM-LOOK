@@ -1854,3 +1854,93 @@ Returns comprehensive cash register summary for a branch on a given date.
 
 ### Lint: Zero errors, zero warnings
 ### Commit: `b009ec7` pushed to GitHub → Vercel auto-deploying
+
+---
+
+## Service Entry API Route - 2026-05-23
+
+### Task: Create a combined appointment + transaction API for walk-in / direct service recording
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/service-entry/route.ts` | POST endpoint that creates appointment + transaction atomically in one call |
+
+### API Route: `POST /api/salon/service-entry`
+
+**Request Body:**
+```json
+{
+  "employeeId": "string (required)",
+  "storeId": "string (required)",
+  "serviceId": "string (required)",
+  "customerName": "string (required)",
+  "customerPhone": "string (optional)",
+  "paymentMethod": "CASH" | "ONLINE" | "SPLIT" (default: CASH)",
+  "productsUsed": [{ "productId": "string", "quantityUsed": number }]
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "appointment": { ... },
+  "transaction": { ... },
+  "isNewCustomer": true/false,
+  "customer": { ... }
+}
+```
+
+### Implementation Logic:
+1. **Validate required fields** — employeeId, storeId, serviceId, customerName; validates paymentMethod enum (CASH/ONLINE/SPLIT)
+2. **Find or create customer** — if customerPhone provided, searches by case-insensitive endsWith phone match; creates new customer if not found (or if no phone given); tracks `isNewCustomer` flag
+3. **Create appointment** — status: "COMPLETED", date/time: now, notes: "Direct service entry"
+4. **Create transaction** — 50/50 commission split, product cost calculation, payment method + cash/online amounts (SPLIT defaults to 50/50)
+5. **Atomic operation** — wrapped in Prisma `$transaction` (create appointment → create transaction → decrement inventory)
+
+### Key Differences from Existing Routes:
+- **vs `/api/salon/walkin`**: Walkin only creates appointment with WALK_IN status; service-entry creates both appointment (COMPLETED) AND transaction in one atomic call
+- **vs `/api/salon/transactions`**: Transactions requires a pre-existing appointment; service-entry creates its own appointment internally
+- **vs separate calls**: Eliminates race conditions and provides a single API for mobile POS workflows
+
+### Lint: Zero errors, zero warnings
+
+## Attendance API Firestore Fallback - 2026-05-24
+
+### Task: Add Firestore fallback to attendance API for Vercel deployment compatibility
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/api/salon/attendance/route.ts` | 83 → 154 lines (+71 lines) | Added Firestore fallback for both GET and POST handlers |
+
+### Changes Made:
+
+#### GET Handler
+- SQLite remains primary (try block) with existing filters (storeId, date, employeeId)
+- Catch block falls back to Firestore with dynamically built query:
+  - `firestore.collection('attendance')` as base
+  - `.where('employeeId', '==', ...)` if employeeId provided
+  - `.where('storeId', '==', ...)` if storeId provided
+  - `.where('date', '==', ...)` if date provided
+  - `.orderBy('date', 'desc')` for consistent ordering
+- Employee data enriched via separate `firestore.collection('employees').doc(employeeId).get()` lookup
+- Returns same `{ id, ...data, employee }` format as SQLite path
+
+#### POST Handler
+- SQLite remains primary (try block) with existing upsert logic
+- Catch block falls back to Firestore:
+  - `docId = \`${employeeId}_${date}\`` for predictable document IDs
+  - `firestore.collection('attendance').doc(docId).set(docData, { merge: true })` for upsert behavior
+  - Includes `updatedAt: new Date().toISOString()` on every write
+  - Reads back merged document and returns it with `createdAt` fallback
+
+### Pattern Used
+- Same `try { SQLite } catch { Firestore fallback }` pattern as `/api/salon/services/route.ts`
+- Dynamic `import('@/lib/firebase-admin')` for lazy Firestore initialization
+- Console log `[Attendance] SQLite not available, falling back to Firestore...` for debugging
+
+### Lint: Zero errors, zero warnings
+
+---
