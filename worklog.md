@@ -1973,3 +1973,46 @@ Returns comprehensive cash register summary for a branch on a given date.
 - All write-heavy API routes now have Firestore fallback for Vercel deployment
 - New customer-search API available for mobile number auto-lookup feature
 - Pattern: try SQLite → catch → fallback to Firestore → catch → 500 error
+
+---
+
+## Vercel Build Error Fix + Firestore Migration + Feature Enhancements - 2026-06-18
+
+### Task: Fix Vercel deployment errors, add Firestore fallback to APIs, enhance Employee dashboard
+
+### Problem
+Vercel build was failing with 11 parsing errors across 9 API route files. Root cause: all catch blocks had extra `);` and `}` after them (a copy-paste artifact from adding Vercel fallback logging).
+
+### Files Fixed (9 syntax errors):
+| File | Error | Fix |
+|------|-------|-----|
+| `src/app/api/salon/advances/route.ts` | Line 29: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/audit-logs/route.ts` | Line 28: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/cash-register/route.ts` | Line 80: extra `)` + `}` | Removed extra brackets |
+| `src/app/api/salon/day-close/route.ts` | Line 27: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/firebase-auth/register-token/route.ts` | Line 50: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/leaves/route.ts` | Line 29: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/payments/route.ts` | Line 29: extra `});` + `}` | Removed extra brackets |
+| `src/app/api/salon/settlement/route.ts` | Line 67: extra `)` + `}` | Removed extra brackets |
+| `src/app/api/salon/walkin/route.ts` | Line 37: extra `)` + `}` | Removed extra brackets |
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/customer-search/route.ts` | GET: search customers by phone with SQLite-first, Firestore fallback |
+
+### Files Modified with Firestore Fallback (3):
+- `service-entry/route.ts` — POST with full Firestore fallback (customer, appointment, transaction)
+- `walkin/route.ts` — GET/POST/PATCH with Firestore fallback
+- `cash-register/route.ts` — GET/POST with Firestore fallback
+
+### Frontend Enhancements:
+1. **Floating FAB (+) button** on Employee dashboard — rose gradient circle, spring animation
+2. **Customer badges**: "Old Customer" (amber) + "New Customer" (emerald with border)
+3. **Today's Customer Report card** — new vs old customer counts with percentage
+4. **Customer search API** — dedicated `/api/salon/customer-search?phone=XXX` endpoint
+
+### Verification:
+- Lint: Zero errors ✅
+- Vercel: Build succeeded, deployment READY ✅
+- Git: Pushed to main (commit 0369609) ✅
