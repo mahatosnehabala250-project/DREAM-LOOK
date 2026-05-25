@@ -2043,3 +2043,45 @@ Stage Summary:
 - All API routes now properly read body once and use it in both SQLite and Firestore paths
 - Services and products auto-seed on first Firestore access on Vercel
 - Check-in, service entry, walk-in, cash register, and all write operations should now work on Vercel
+
+---
+
+## Critical Bug Fix: Check-in + Service Entry on Vercel - 2026-06-25
+
+### Task: Fix check-in failure, empty services, and missing payment options
+
+### Root Cause Analysis
+Three related bugs caused the Employee dashboard to be non-functional on Vercel:
+
+1. **`request.json()` double-consumption**: In ALL API routes with Firestore fallback, the body stream was read once in `try` (SQLite) and again in `catch` (Firestore). Since HTTP body streams can only be consumed once, the Firestore fallback ALWAYS failed with 500 error.
+2. **No seeded data in Firestore**: Services, products, employees, stores had no data in Firestore, so all GET endpoints returned empty arrays.
+3. **Conditional UI hiding**: Payment method options were hidden until a service was selected, but services were empty, so the payment section never appeared.
+
+### Files Fixed (8 API routes, 14 handlers):
+
+| File | Fix Applied |
+|------|-------------|
+| `attendance/route.ts` | Read body once before try-catch; use in both paths |
+| `service-entry/route.ts` | Read body once before try-catch |
+| `walkin/route.ts` | Read body once in POST + PATCH |
+| `cash-register/route.ts` | Read body once in POST |
+| `employees/route.ts` | Read body once in POST + PATCH |
+| `services/route.ts` | Read body once + auto-seed 12 default services when Firestore empty |
+| `products/route.ts` | Read body once + auto-seed 8 default products when Firestore empty |
+| `stores/route.ts` | Read body once in POST + PATCH |
+
+### Frontend Fixes (page.tsx):
+- Payment method (Cash/Online/Split) now ALWAYS visible in service entry dialog
+- Service price displayed below dropdown when selected (rose badge)
+- Loading/empty states for service dropdown
+
+### Default Services Seeded (12):
+Haircut ₹200, Hair Color ₹500, Hair Spa ₹300, Facial ₹400, Bridal Makeup ₹5000, Beard Trim ₹100, Hair Straightening ₹1500, Head Massage ₹200, Keratin Treatment ₹2000, Hair Wash & Blow Dry ₹150, Manicure ₹250, Pedicure ₹300
+
+### Default Products Seeded (8):
+Shampoo, Hair Color, Hair Oil, Conditioner, Hair Mask, Hair Spray, Gel, Serum
+
+### Verification:
+- Lint: Zero errors ✅
+- Vercel: Build succeeded → READY ✅
+- Git: Pushed to main (commit 258ae62) ✅
