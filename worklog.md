@@ -2784,3 +2784,57 @@ The `page.tsx` had already been split into 6 component modules:
 - 🔴 **TDZ Error**: FIXED by splitting monolithic page.tsx into modules
 - 🔴 **Login failure**: FIXED — was a symptom of TDZ crash
 - 🔴 **Turbopack conflict**: FIXED — replaced webpack config with turbopack: {}
+
+---
+
+## Aggressive Cache Fix + Middleware CDN Bypass - 2026-05-26
+
+### Task: Fix stale browser cache causing login failure on user's device
+
+### Problem
+- User reported "same problem" — login still not working
+- Root cause: Vercel CDN was caching JS bundles with `cache-control: public,max-age=31536000,immutable`
+- User's browser had OLD cached HTML from before the TDZ fix
+- Old HTML had old cache-bust version → cache bust script never triggered → stale JS loaded → TDZ error persisted
+
+### Files Created (2):
+| File | Description |
+|------|-------------|
+| `src/app/loading.tsx` | Branded loading screen with animated logo, shown while JS loads |
+| `src/middleware.ts` | Edge middleware that forces `no-cache` on HTML + API routes |
+
+### Files Modified (2):
+| File | Change |
+|------|--------|
+| `src/app/layout.tsx` | Updated APP_VERSION to 2026052605, added service worker unregister to cache bust script |
+| `next.config.ts` | Added `/_next/static/:path*` header rule with `max-age=0, must-revalidate` |
+
+### Fixes Applied:
+1. **`middleware.ts`**: Bypasses Vercel CDN cache for HTML/API routes, ensuring fresh content
+2. **`loading.tsx`**: Shows branded loading animation while client JS hydrates (replaces blank screen)
+3. **APP_VERSION bump**: 2026052604 → 2026052605, forces cache bust on next visit
+4. **Service Worker cleanup**: Added `navigator.serviceWorker.getRegistrations()` to unregister old SWs
+5. **Static asset headers**: Added `max-age=0, must-revalidate` for `/_next/static/*` paths
+
+### Verification (agent-browser QA on production):
+- ✅ Fresh visit → Landing page with 3 login cards (no cached auth state)
+- ✅ Owner login → Rajesh Kumar authenticated → Dashboard loads
+- ✅ Console: Zero JS errors, zero TDZ errors
+- ✅ Cache headers: `no-store, no-cache` on HTML, `x-vercel-cache: PRERENDER` (fresh, not stale HIT)
+- ✅ All auth APIs: Owner/Manager/Employee all return correct Firestore data
+
+### Infrastructure Checks:
+- ✅ **Vercel**: 3 deployments this session, all READY. Production domain `dream-look-nu.vercel.app` serving latest code
+- ✅ **Firebase Admin SDK**: Service account working on Vercel (FIREBASE_SERVICE_ACCOUNT_KEY env var set)
+- ✅ **Firestore**: employees, stores, services, products, transactions, customers — all 6 collections responding
+- ✅ **Auth API**: Tests from curl all pass (owner/manager/employee login + wrong phone 404)
+- ✅ **SQLite**: 11 employees, 3 stores in local DB (used for dev, fallback on Vercel)
+- ✅ **JS chunks**: All 10 chunks return HTTP 200 on production
+- ✅ **Firebase Client**: NOT imported by any client component (server-only)
+
+### Commits:
+- `13ee96c` fix: replace webpack minification bypass with turbopack config
+- `f9dd782` fix: aggressive cache busting + loading screen + SW cleanup
+- `3c22b7c` fix: add middleware to bypass Vercel CDN cache
+
+### Production URL: https://dream-look-nu.vercel.app/ ✅ Working
