@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -12,6 +11,14 @@ const nextConfig: NextConfig = {
     "http://127.0.0.1:3000",
     "https://*.space-z.ai",
   ],
+  // Disable client-side minification to prevent TDZ (Temporal Dead Zone) errors
+  // caused by SWC variable renaming in large component files
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      config.optimization.minimize = false;
+    }
+    return config;
+  },
   async headers() {
     return [
       {

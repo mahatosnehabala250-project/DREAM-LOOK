@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
 };
 
-const APP_VERSION = "2026052603";
+const APP_VERSION = "2026052604";
 
 export default function RootLayout({
   children,
