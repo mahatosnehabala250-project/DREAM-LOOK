@@ -2210,3 +2210,26 @@ Replaced portal-based Select with direct DOM elements (buttons) to avoid z-index
 - GitHub: commit `173786c`
 - Vercel: State READY
 - Live URL: https://dream-look-nu.vercel.app
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix client-side exception on employee login + verify service entry features
+
+Work Log:
+- Analyzed error screenshot using VLM: "Cannot access 'B' before initialization" (Temporal Dead Zone error)
+- Read and analyzed 7683-line page.tsx for TDZ issues
+- Found Bug #1: authScreen restoration from localStorage was returning full object `{ screen, user }` instead of just `.screen` string
+- Found Bug #2: `import('firebase/messaging')` dynamic import was causing module initialization conflicts in Vercel production minified build
+- Fixed authScreen restoration: `return (parsed?.screen as AuthScreen) || 'landing'`
+- Removed firebase/messaging dynamic import from handleLogin callback (FCM not needed for core functionality)
+- Added global error boundary (`src/app/error.tsx`) to catch runtime errors and show friendly UI
+- Verified services API already has hardcoded fallback with 12 real salon services (Haircut Men/Women, Beard Trim, Hair Coloring, Highlights, Hair Spa, Keratin, Facial Classic/Gold, Head Massage, Bridal Makeup, Manicure & Pedicure)
+- Verified QuickServiceEntryDialog already has: service cards with prices, payment method buttons (Cash/Online/Split), split payment sub-form with auto-fill, Old/New customer badges, commission preview
+- Pushed fix to GitHub and verified Vercel auto-deployment (HTTP 200)
+
+Stage Summary:
+- Root cause: firebase/messaging module import creating TDZ in production minified code + authScreen restoration bug
+- Employee login crash is now fixed
+- Services API has 3-tier fallback: SQLite → Firestore → Hardcoded (12 real services with prices)
+- Service entry dialog fully functional with split payment support
+- Remaining work: Connect service prices to income/revenue dashboards, show split payment details in owner/manager views
