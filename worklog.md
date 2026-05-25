@@ -2651,3 +2651,74 @@ Split the monolithic file into 9 separate modules:
 - ✅ All routes return 200
 - ✅ `bun run lint` passes with zero errors
 - ✅ Git pushed to `main` branch
+
+---
+
+## TDZ Production Error Fix - 2026-05-26
+
+### Task: Fix "Cannot access '$' before initialization" TDZ error on Vercel production
+
+### Problem
+- Live site (`dream-look-nu.vercel.app`) showing "Something went wrong" error with message "Cannot access '$' before initialization"
+- User confirmed error persists even in incognito mode (ruling out browser cache)
+- Error occurs during module initialization on Vercel's production build
+- The `$` variable is a minified name from SWC's production minification
+
+### Root Cause Analysis
+- Vercel's SWC minifier renames variables to single characters (`s`, `$`, etc.)
+- The large component files (manager-view.tsx = 3429 lines, employee-view.tsx = 1852 lines) create complex scope chains
+- When SWC minifies these, variable renaming can create Temporal Dead Zone (TDZ) violations
+- TDZ errors occur when a `let`/`const` variable is accessed before its declaration is reached during execution
+
+### Fix Applied
+
+#### 1. `next.config.ts` - Disable client-side minification
+```js
+webpack: (config, { dev, isServer }) => {
+  if (!dev && !isServer) {
+    config.optimization.minimize = false;
+  }
+  return config;
+},
+```
+- Disables minification for client-side bundle only (server bundle still minified)
+- Prevents SWC from renaming variables, eliminating TDZ risk
+- Bundle size increases slightly but acceptable for salon management app
+
+#### 2. `src/app/error.tsx` - Improved error recovery
+- Added retry counter with auto-reload after 2 failed attempts
+- Better UX with descriptive error messages for TDZ errors
+- "Clear Data & Reload" button that clears localStorage/sessionStorage/caches
+- Branded error page with Dream Look logo
+
+#### 3. `src/app/layout.tsx` - Version bump
+- `APP_VERSION` changed from "2026052603" to "2026052604"
+- Forces cache busting on all existing clients
+
+### Files Modified (3):
+| File | Change |
+|------|--------|
+| `next.config.ts` | Added webpack config to disable client-side minification |
+| `src/app/error.tsx` | Rewritten with retry logic, better UX, branded error page |
+| `src/app/layout.tsx` | APP_VERSION bumped to "2026052604" |
+
+### Verification
+- ✅ `bun run lint` passes with zero errors
+- ✅ Dev server running on port 3000, all API endpoints returning 200
+- ✅ Pushed to GitHub (`37f3ee5`), Vercel will auto-deploy
+
+### Current Project Status
+
+#### What's Working
+- ✅ **Authentication**: Phone-based login with separate pages for Employee/Manager/Owner
+- ✅ **API Layer**: 15+ endpoints with commission engine
+- ✅ **Frontend**: Split into component files (page.tsx = 443 lines + 6 component files)
+- ✅ **Customer View**: Booking wizard, appointment tracking
+- ✅ **Employee View**: Earnings, schedule, commission tools
+- ✅ **Manager View**: Store management, attendance, inventory, expenses, walk-ins, day close
+- ✅ **Owner View**: Analytics, settlement engine, staff management, audit logs
+
+#### Risk
+- Disabling client-side minification increases bundle size (acceptable trade-off for stability)
+- Future: Consider splitting manager-view.tsx (3429 lines) into smaller modules for better maintainability
+
