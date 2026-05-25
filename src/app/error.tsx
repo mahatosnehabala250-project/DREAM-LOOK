@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GlobalError({
@@ -14,6 +14,8 @@ export default function GlobalError({
   useEffect(() => {
     console.error('App error:', error);
   }, [error]);
+
+  const isTDZError = error?.message?.includes('before initialization');
 
   return (
     <html lang="en">
@@ -29,16 +31,39 @@ export default function GlobalError({
                 {error.message || 'An unexpected error occurred'}
               </p>
             </div>
-            <Button
-              onClick={reset}
-              className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md shadow-rose-500/20"
-              size="lg"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Try Again
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={reset}
+                className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md shadow-rose-500/20"
+                size="lg"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reload Page
+              </Button>
+              {isTDZError && (
+                <Button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      if ('caches' in window) {
+                        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+                      }
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      window.location.href = window.location.href.split('?')[0];
+                    }
+                  }}
+                  variant="outline"
+                  size="lg"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Clear Cache & Reload
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              If the problem persists, please clear your browser cache and try again.
+              {isTDZError
+                ? 'This is caused by an outdated cached version. Click "Clear Cache & Reload" to fix it.'
+                : 'If the problem persists, please clear your browser cache (Ctrl+Shift+R) and try again.'}
             </p>
           </div>
         </div>
