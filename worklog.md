@@ -2085,3 +2085,66 @@ Shampoo, Hair Color, Hair Oil, Conditioner, Hair Mask, Hair Spray, Gel, Serum
 - Lint: Zero errors ✅
 - Vercel: Build succeeded → READY ✅
 - Git: Pushed to main (commit 258ae62) ✅
+
+---
+
+## Service Entry UX Fix - Clickable Service Cards & Payment Methods - 2026-06-18
+
+### Task: Fix service entry dialog where services were not clickable, add price display and payment method options
+
+### Problem
+- User reported: "jab service pe click kar raha hoon employe ki entry mein to kuch a nhi raha hai click he nhi kar pa rahi hoon" (clicking on service doesn't work)
+- Root cause: shadcn/ui `Select` dropdown component had potential z-index/portal conflicts when used inside a `Dialog` component. The SelectContent portal could render behind the Dialog overlay, making items unclickable.
+
+### Files Modified (1):
+| File | Lines Changed | Description |
+|------|--------------|-------------|
+| `src/app/page.tsx` | +102, -46 | Replaced Select dropdown with clickable service cards, improved payment method buttons |
+
+### Changes Made:
+
+#### 1. Service Selection — Clickable Cards (replacing Select dropdown)
+- **Before**: shadcn/ui `Select` dropdown with service items
+- **After**: Scrollable grid of clickable service cards (2-column grid, max-h-48)
+- Each card shows: service name, price (bold rose), duration (with clock icon), category label
+- Selected service gets: rose border, checkmark indicator, rose background highlight
+- **Category filter chips**: ALL, HAIRCUT, COLOR, TREATMENT, SPA, BRIDAL pill buttons above the grid
+- **Service summary bar**: Below the grid, shows selected service name + price
+- **Loading state**: Spinner with "Loading services..." text
+- **Empty state**: AlertTriangle icon with "No active services found. Contact your manager."
+- **New state**: `serviceFilter` state variable, `filteredServices` computed value
+
+#### 2. Payment Method Buttons — Improved UX
+- **Before**: Generic rose-colored buttons with emoji labels
+- **After**: Distinct color-coded buttons with lucide icons:
+  - **Cash** = emerald (green) + Banknote icon
+  - **Online** = blue + Smartphone icon  
+  - **Split** = amber (orange) + Receipt icon
+- Each button: larger touch targets (py-2.5 px-3), rounded-xl, ring-2 when active
+- **New icon import**: `Smartphone` from lucide-react
+
+#### 3. Form Reset
+- Added `setServiceFilter('ALL')` to the form reset in `handleSubmit`
+
+### Verification:
+- Lint: Clean (only pre-existing errors in `scripts/inject_fallbacks.js`)
+- Build: Compiles successfully
+- Deployed to GitHub: commit `5ea423c`
+- Vercel deployment: State READY
+
+### Key Architecture Decision:
+Replaced portal-based Select with direct DOM elements (buttons) to avoid z-index conflicts with Dialog overlay. Service cards are rendered inline within the Dialog, so no portal layering issues.
+
+---
+
+### Current Project Status:
+- **page.tsx**: ~8214 lines
+- **Live URL**: https://dream-look-nu.vercel.app
+- **GitHub**: https://github.com/mahatosnehabala250-project/DREAM-LOOK
+- All APIs have Firestore fallback for Vercel deployment
+- Services, Attendance, Service-Entry, Walkin, Cash-Register all have dual SQLite + Firestore support
+
+### Unresolved Issues:
+1. Check-in may still have issues on Vercel (attendance API has Firestore fallback, but needs testing)
+2. Full Firestore migration still pending for some APIs
+3. Android App "SalonPro Manager" not started
