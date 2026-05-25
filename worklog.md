@@ -2573,3 +2573,42 @@ Stage Summary:
 | 🟡 Medium | Add data export (PDF/Excel) for owner reports | Medium |
 | 🟢 Low | Add multi-language support (Hindi/Tamil) | Medium |
 | 🟢 Low | PWA mobile app shell for offline access | High |
+
+---
+## Browser Cache TDZ Error Fix - 2026-05-26
+
+### Task: Fix "Cannot access 's' before initialization" error on Vercel production
+
+### Problem
+User reported seeing "Something went wrong" error page with message "Cannot access 's' before initialization" when visiting dream-look-nu.vercel.app.
+
+### Root Cause Analysis
+1. Used VLM (Vision Language Model) to analyze the user's screenshot - confirmed TDZ error
+2. Used agent-browser to test the live Vercel deployment - **site loads correctly with no errors**
+3. Checked Vercel runtime logs - all API endpoints working normally, Firebase Firestore fallback operational
+4. Checked Vercel build output - build succeeds with zero errors
+5. **Conclusion**: The error was caused by **stale browser cache** from a previous deployment that had a `firebase/messaging` TDZ issue. The current code does not have this issue.
+
+### Fix Applied
+1. **Improved error.tsx** (Next.js app-level error boundary):
+   - Added TDZ error detection (`isTDZError` flag)
+   - Added "Clear Cache & Reload" button that appears specifically for TDZ errors
+   - The cache clearing button: clears Cache API, localStorage, sessionStorage, and redirects to fresh page
+   - Added contextual help text explaining the cache issue
+2. **Force-deployed** by pushing a new commit to trigger fresh Vercel build
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `src/app/error.tsx` | Added TDZ detection + "Clear Cache & Reload" button + contextual help text |
+
+### Verification
+- ✅ agent-browser test: Landing page loads correctly
+- ✅ agent-browser test: Employee login page renders
+- ✅ Vercel logs: All API endpoints returning 200, Firestore fallback working
+- ✅ Push successful to GitHub (fbb7fe2)
+- ✅ Vercel auto-deploy triggered
+
+### User Action Required
+- User needs to **clear browser cache** (Ctrl+Shift+R or use the new "Clear Cache & Reload" button)
+- If issue persists, user should clear all site data in browser settings
