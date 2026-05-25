@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   },
 };
 
+const APP_VERSION = "2026052603";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,6 +40,28 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Self-healing cache buster — runs before React loads */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+  try {
+    var v="${APP_VERSION}";
+    var sv=localStorage.getItem("dl_app_ver");
+    if(sv&&sv!==v){
+      localStorage.clear();
+      sessionStorage.clear();
+      if("caches"in window){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}
+      localStorage.setItem("dl_app_ver",v);
+      window.location.replace(window.location.pathname);
+      throw new Error("CACHE_BUST");
+    }
+    localStorage.setItem("dl_app_ver",v);
+  } catch(e){if(e.message!=="CACHE_BUST"){}}
+})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
