@@ -902,6 +902,44 @@ async function apiDelete(url: string) {
   return res.json();
 }
 
+// ─── ERROR BOUNDARY ──────────────────────────────────────────────
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10">
+          <Card className="max-w-md w-full border-red-200 dark:border-red-800">
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold">Something went wrong</h2>
+              <p className="text-sm text-muted-foreground">{this.state.error?.message || 'An unexpected error occurred'}</p>
+              <Button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }} className="bg-rose-500 hover:bg-rose-600 text-white">
+                <RefreshCw className="w-4 h-4 mr-2" /> Reload Page
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MAIN PAGE COMPONENT
 // ═══════════════════════════════════════════════════════════════════
@@ -938,22 +976,29 @@ export default function Home() {
   });
 
   const handleLogin = useCallback(async (phone: string, role: string) => {
+    // Request FCM notification permission & token (non-blocking)
+    let fcmToken: string | null = null;
     try {
-      // Request FCM notification permission & token
-      let fcmToken: string | null = null;
-      try {
-        if ('Notification' in window && Notification.permission === 'default') {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') {
           await Notification.requestPermission();
         }
-        if ('Notification' in window && Notification.permission === 'granted') {
-          const { getMessaging, getToken } = await import('firebase/messaging');
-          const { app } = await import('@/lib/firebase-client');
-          fcmToken = await getToken(getMessaging(app));
+        if (Notification.permission === 'granted') {
+          try {
+            const { getMessaging, getToken } = await import('firebase/messaging');
+            const firebaseApp = await import('@/lib/firebase-client');
+            fcmToken = await getToken(getMessaging(firebaseApp.app));
+          } catch (fcmErr) {
+            // FCM may not be configured — non-blocking
+            console.warn('FCM token not available:', fcmErr);
+          }
         }
-      } catch (fcmErr) {
-        console.warn('FCM token not available:', fcmErr);
       }
+    } catch (fcmErr) {
+      console.warn('FCM not available:', fcmErr);
+    }
 
+    try {
       const res = await fetch('/api/salon/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -972,7 +1017,6 @@ export default function Home() {
       toast.success(`Welcome back, ${user.name}!`);
     } catch (e) {
       toast.error('Login failed', { description: (e as Error).message });
-      throw e;
     }
   }, []);
 
@@ -1071,6 +1115,7 @@ export default function Home() {
   const userBadge = authUser ? roleBadgeConfig[authUser.role] : null;
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-gradient-to-br from-rose-50/50 via-white to-pink-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-rose-950/10 flex flex-col [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.03)_1px,transparent_0)] [background-size:24px_24px] dark:[background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)]">
       {/* ─── HEADER ──────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl">
@@ -1325,6 +1370,7 @@ export default function Home() {
         />
       )}
     </div>
+    </ErrorBoundary>
   );
 }
 
@@ -1391,8 +1437,9 @@ function LoginPage({ role, onLogin, onBack }: {
     setLoading(true);
     try {
       await onLogin(phone, role);
-    } catch {
-      setError('Invalid credentials. Please try again.');
+    } catch (err) {
+      // Safety net — handleLogin shows toast, but set local error too
+      setError((err as Error).message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
