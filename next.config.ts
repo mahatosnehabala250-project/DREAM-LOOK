@@ -11,14 +11,9 @@ const nextConfig: NextConfig = {
     "http://127.0.0.1:3000",
     "https://*.space-z.ai",
   ],
-  // Disable client-side minification to prevent TDZ (Temporal Dead Zone) errors
-  // caused by SWC variable renaming in large component files
-  webpack: (config, { dev, isServer }) => {
-    if (!dev && !isServer) {
-      config.optimization.minimize = false;
-    }
-    return config;
-  },
+  // Silence Turbopack config warning (webpack minification disable no longer needed
+  // since page.tsx has been split into small component modules)
+  turbopack: {},
   async headers() {
     return [
       {
