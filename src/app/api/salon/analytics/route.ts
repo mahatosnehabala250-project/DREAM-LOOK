@@ -94,6 +94,16 @@ export async function GET(request: NextRequest) {
       avgPerTransaction: e.totalRevenue / e.transactions,
     })).sort((a, b) => b.totalRevenue - a.totalRevenue)
 
+    // Payment method breakdown
+    const totalCash = transactions.reduce((sum, t) => sum + (t.cashAmount || 0), 0);
+    const totalOnline = transactions.reduce((sum, t) => sum + (t.onlineAmount || 0), 0);
+    const totalSplitCount = transactions.filter(t => t.paymentMethod === 'SPLIT').length;
+    const paymentMethodBreakdown = ['CASH', 'ONLINE', 'SPLIT'].map(method => ({
+      method,
+      count: transactions.filter(t => t.paymentMethod === method).length,
+      amount: transactions.filter(t => t.paymentMethod === method).reduce((sum, t) => sum + t.servicePrice, 0),
+    }));
+
     return NextResponse.json({
       totalRevenue,
       totalTransactions,
@@ -103,6 +113,10 @@ export async function GET(request: NextRequest) {
       dailyRevenue,
       servicePopularity,
       employeePerformance,
+      totalCash,
+      totalOnline,
+      totalSplitCount,
+      paymentMethodBreakdown,
     })
   } catch (error) {
     console.log('[Analytics] SQLite not available, falling back to Firestore...');
@@ -207,6 +221,16 @@ export async function GET(request: NextRequest) {
         avgPerTransaction: e.totalRevenue / e.transactions,
       })).sort((a, b) => b.totalRevenue - a.totalRevenue)
 
+      // Payment method breakdown
+      const totalCash = transactions.reduce((sum: number, t: any) => sum + (t.cashAmount || 0), 0);
+      const totalOnline = transactions.reduce((sum: number, t: any) => sum + (t.onlineAmount || 0), 0);
+      const totalSplitCount = transactions.filter((t: any) => (t.paymentMethod || 'CASH') === 'SPLIT').length;
+      const paymentMethodBreakdown = ['CASH', 'ONLINE', 'SPLIT'].map(method => ({
+        method,
+        count: transactions.filter((t: any) => (t.paymentMethod || 'CASH') === method).length,
+        amount: transactions.filter((t: any) => (t.paymentMethod || 'CASH') === method).reduce((sum: number, t: any) => sum + (t.servicePrice || 0), 0),
+      }));
+
       return NextResponse.json({
         totalRevenue,
         totalTransactions,
@@ -216,6 +240,10 @@ export async function GET(request: NextRequest) {
         dailyRevenue,
         servicePopularity,
         employeePerformance,
+        totalCash,
+        totalOnline,
+        totalSplitCount,
+        paymentMethodBreakdown,
       })
     } catch (firebaseError) {
       console.error('Error fetching analytics from Firebase:', firebaseError)

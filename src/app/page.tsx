@@ -128,6 +128,8 @@ interface AttendanceRecord {
 interface AnalyticsData {
   totalRevenue: number; totalTransactions: number; totalProductCost: number;
   totalOwnerShare: number; totalEmployeePayout: number;
+  totalCash: number; totalOnline: number; totalSplitCount: number;
+  paymentMethodBreakdown: Array<{ method: string; count: number; amount: number }>;
   dailyRevenue: Array<{ date: string; revenue: number; transactions: number }>;
   servicePopularity: Array<{ serviceName: string; count: number; revenue: number }>;
   employeePerformance: Array<{
@@ -2843,7 +2845,18 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{tx.service?.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium truncate">{tx.service?.name}</p>
+                      {tx.paymentMethod && (
+                        <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
+                          tx.paymentMethod === 'CASH' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                          tx.paymentMethod === 'ONLINE' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' :
+                          'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                        }`}>
+                          {tx.paymentMethod === 'CASH' ? '💵' : tx.paymentMethod === 'ONLINE' ? '📱' : '✂️'} {tx.paymentMethod}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
                       <span>{tx.completedAt ? format(new Date(tx.completedAt), 'hh:mm a') : ''}</span>
@@ -2853,6 +2866,14 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                         </span>
                       )}
                     </div>
+                    {/* Split payment details */}
+                    {tx.paymentMethod === 'SPLIT' && (tx.cashAmount > 0 || tx.onlineAmount > 0) && (
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                        <span className="text-emerald-600 dark:text-emerald-400">Cash: {formatCurrency(tx.cashAmount)}</span>
+                        <span className="text-muted-foreground">+</span>
+                        <span className="text-blue-600 dark:text-blue-400">Online: {formatCurrency(tx.onlineAmount)}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`text-sm font-semibold ${
@@ -2865,6 +2886,24 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
                 </div>
               ))}
             </div>
+            {/* Payment summary footer */}
+            {(todayTransactions || []).length > 0 && (
+              <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Cash: <strong>{formatCurrency((todayTransactions || []).reduce((s, t) => s + (t.cashAmount || 0), 0))}</strong>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    Online: <strong>{formatCurrency((todayTransactions || []).reduce((s, t) => s + (t.onlineAmount || 0), 0))}</strong>
+                  </span>
+                </div>
+                <span className="text-muted-foreground">
+                  Total: <strong>{formatCurrency((todayTransactions || []).reduce((s, t) => s + t.servicePrice, 0))}</strong>
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -4881,6 +4920,9 @@ function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
 
       {/* Today vs Yesterday Comparison */}
       <TodayVsYesterdayComparison storeId={activeStoreId} />
+
+      {/* Payment Breakdown */}
+      <PaymentBreakdownCard analytics={todayAnalytics} title="Today's Payment Breakdown" />
       </div>{/* end mgr-overview */}
 
       {/* Staff Attendance */}
@@ -6119,6 +6161,115 @@ function ExpenseCategoryBadge({ category }: { category: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PAYMENT BREAKDOWN CARD (Cash / Online / Split)
+// ═══════════════════════════════════════════════════════════════════
+function PaymentBreakdownCard({ analytics, title }: { analytics: AnalyticsData | null; title?: string }) {
+  if (!analytics) return null;
+
+  const totalCash = analytics.totalCash || 0;
+  const totalOnline = analytics.totalOnline || 0;
+  const total = totalCash + totalOnline;
+  const cashPct = total > 0 ? Math.round((totalCash / total) * 100) : 0;
+  const onlinePct = total > 0 ? Math.round((totalOnline / total) * 100) : 0;
+  const splitCount = analytics.totalSplitCount || 0;
+
+  const breakdown = analytics.paymentMethodBreakdown || [];
+
+  const methodConfig: Record<string, { label: string; icon: React.ElementType; color: string; bg: string; barColor: string }> = {
+    CASH: { label: 'Cash', icon: Banknote, color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-100 dark:bg-emerald-900/30', barColor: 'bg-emerald-500' },
+    ONLINE: { label: 'Online', icon: Smartphone, color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-100 dark:bg-blue-900/30', barColor: 'bg-blue-500' },
+    SPLIT: { label: 'Split', icon: Receipt, color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-100 dark:bg-amber-900/30', barColor: 'bg-amber-500' },
+  };
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{title || 'Payment Breakdown'}</CardTitle>
+              <CardDescription className="text-xs">Cash vs Online vs Split payment analysis</CardDescription>
+            </div>
+          </div>
+          <Badge variant="secondary" className="text-xs">{analytics.totalTransactions} total</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Visual bar */}
+        <div className="space-y-2">
+          <div className="flex rounded-full overflow-hidden h-3 bg-muted/50">
+            {totalCash > 0 && (
+              <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${cashPct}%` }} />
+            )}
+            {totalOnline > 0 && (
+              <div className="bg-blue-500 transition-all duration-500" style={{ width: `${onlinePct}%` }} />
+            )}
+            {(totalCash === 0 && totalOnline === 0) && (
+              <div className="bg-muted flex-1" />
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Cash {cashPct}%
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                Online {onlinePct}%
+              </span>
+            </div>
+            {splitCount > 0 && (
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <Receipt className="w-3 h-3" /> {splitCount} split payment{splitCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Method cards */}
+        <div className="grid grid-cols-3 gap-3">
+          {breakdown.map((item) => {
+            const cfg = methodConfig[item.method] || methodConfig.CASH;
+            const MethodIcon = cfg.icon;
+            const isZero = item.count === 0;
+            return (
+              <div key={item.method} className={`rounded-xl p-3 border ${isZero ? 'bg-muted/20 border-muted opacity-50' : `${cfg.bg} border-transparent`}`}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MethodIcon className={`w-3.5 h-3.5 ${cfg.color}`} />
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${cfg.color}`}>{cfg.label}</span>
+                </div>
+                <p className="text-base font-bold">{formatCurrency(item.amount)}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-[10px] text-muted-foreground">{item.count} txns</span>
+                  {!isZero && (
+                    <span className={`text-[10px] font-semibold ${cfg.color}`}>
+                      {total > 0 ? Math.round((item.amount / total) * 100) : 0}%
+                    </span>
+                  )}
+                </div>
+                {/* Mini bar */}
+                {!isZero && total > 0 && (
+                  <div className="mt-2 h-1 rounded-full bg-muted/30 overflow-hidden">
+                    <div className={`h-full rounded-full ${cfg.barColor} transition-all duration-500`}
+                      style={{ width: `${Math.max(2, (item.amount / total) * 100)}%` }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // KPI DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
 function KPIDashboard({ monthAnalytics }: { monthAnalytics: AnalyticsData | null }) {
@@ -7294,6 +7445,9 @@ function OwnerView() {
 
       {/* KPI Dashboard */}
       <KPIDashboard monthAnalytics={monthAnalytics} />
+
+      {/* Payment Breakdown (Cash vs Online vs Split) */}
+      <PaymentBreakdownCard analytics={monthAnalytics} title="Monthly Payment Breakdown" />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
