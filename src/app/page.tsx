@@ -958,10 +958,13 @@ export default function Home() {
   // ─── Auth State ──────────────────────────────────────────────
   const [authScreen, setAuthScreen] = useState<AuthScreen>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dreamlook_auth');
-      if (saved) {
-        try { return JSON.parse(saved) as { screen: AuthScreen; user: AuthUser }; } catch { /* ignore */ }
-      }
+      try {
+        const saved = localStorage.getItem('dreamlook_auth');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return (parsed?.screen as AuthScreen) || 'landing';
+        }
+      } catch { /* ignore */ }
     }
     return 'landing';
   });
@@ -976,33 +979,11 @@ export default function Home() {
   });
 
   const handleLogin = useCallback(async (phone: string, role: string) => {
-    // Request FCM notification permission & token (non-blocking)
-    let fcmToken: string | null = null;
-    try {
-      if (typeof window !== 'undefined' && 'Notification' in window) {
-        if (Notification.permission === 'default') {
-          await Notification.requestPermission();
-        }
-        if (Notification.permission === 'granted') {
-          try {
-            const { getMessaging, getToken } = await import('firebase/messaging');
-            const firebaseApp = await import('@/lib/firebase-client');
-            fcmToken = await getToken(getMessaging(firebaseApp.app));
-          } catch (fcmErr) {
-            // FCM may not be configured — non-blocking
-            console.warn('FCM token not available:', fcmErr);
-          }
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('FCM not available:', fcmErr);
-    }
-
     try {
       const res = await fetch('/api/salon/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, role, fcmToken: fcmToken || undefined }),
+        body: JSON.stringify({ phone, role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
