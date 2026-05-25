@@ -2233,3 +2233,29 @@ Stage Summary:
 - Services API has 3-tier fallback: SQLite → Firestore → Hardcoded (12 real services with prices)
 - Service entry dialog fully functional with split payment support
 - Remaining work: Connect service prices to income/revenue dashboards, show split payment details in owner/manager views
+---
+Task ID: 2
+Agent: Main Agent
+Task: Connect service prices to revenue + add payment breakdown to all dashboards
+
+Work Log:
+- Updated AnalyticsData interface with: totalCash, totalOnline, totalSplitCount, paymentMethodBreakdown
+- Updated analytics API (SQLite + Firestore paths) to compute payment method breakdown from transaction data
+- Created PaymentBreakdownCard component with:
+  - Visual stacked bar showing Cash vs Online percentage split
+  - Three method cards (Cash/Online/Split) with amount, count, percentage, mini progress bar
+  - Split payment count badge
+- Added PaymentBreakdownCard to Owner dashboard (monthly view in overview section)
+- Added PaymentBreakdownCard to Manager dashboard (today's view in overview section)
+- Enhanced Employee Recent Activity feed:
+  - Payment method badges on each transaction (💵 Cash, 📱 Online, ✂️ Split)
+  - Split payment detail line (Cash: ₹X + Online: ₹Y) shown for split transactions
+  - Payment summary footer (Cash total + Online total + Grand total)
+- Verified build compiles, lint passes, pushed to GitHub, Vercel auto-deployed
+
+Stage Summary:
+- Service prices are now connected to revenue in all dashboards via the analytics API
+- Payment method breakdown (Cash/Online/Split) visible in Owner, Manager, and Employee views
+- Split payment details shown at transaction level in employee activity feed
+- All code paths (SQLite + Firestore) support the new fields
+- Deployed to Vercel: https://dream-look-nu.vercel.app
