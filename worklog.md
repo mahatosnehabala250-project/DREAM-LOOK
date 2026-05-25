@@ -2148,3 +2148,65 @@ Replaced portal-based Select with direct DOM elements (buttons) to avoid z-index
 1. Check-in may still have issues on Vercel (attendance API has Firestore fallback, but needs testing)
 2. Full Firestore migration still pending for some APIs
 3. Android App "SalonPro Manager" not started
+
+---
+
+## Services Loading Fix, Real Pricing, Split Payment Inputs - 2026-06-18
+
+### Task: Fix "Loading services..." issue, add real Indian salon prices, split payment with cash/online inputs
+
+### User Issues:
+1. "Loading services..." message forever - services not loading
+2. Split payment needs cash/online input fields (not just a button)
+3. Need real salon service prices (₹100 haircut etc.)
+4. Prices should connect to income/contribution calculations
+
+### Files Modified (4):
+| File | Change |
+|------|--------|
+| `src/app/api/salon/services/route.ts` | Added hardcoded fallback, fixed Firestore query, updated 12 default services |
+| `src/app/api/salon/service-entry/route.ts` | Accept cashAmount/onlineAmount from client for SPLIT payments |
+| `src/app/page.tsx` | Split payment input fields, auto-fill logic, validation |
+| `scripts/seed-firestore-services.js` | New seed script for Firestore services |
+
+### Changes:
+
+#### 1. Services API - Triple Fallback Strategy
+- **Strategy**: SQLite → Firestore → Hardcoded fallback
+- When both SQLite and Firestore fail, returns 12 hardcoded services (so frontend never shows "Loading..." forever)
+- Fixed Firestore query: removed `.where('isActive', '==', true).orderBy('name')` (needs composite index) → `.orderBy('name')` + JS filter
+- Updated default services to match real Indian salon pricing
+
+#### 2. 12 Real Indian Salon Services (Seeded in SQLite + Hardcoded Fallback)
+| # | Service | Price | Duration | Category |
+|---|---------|-------|----------|----------|
+| 1 | Haircut (Men) | ₹100 | 30min | HAIRCUT |
+| 2 | Haircut (Women) | ₹250 | 45min | HAIRCUT |
+| 3 | Beard Trim & Shape | ₹50 | 15min | HAIRCUT |
+| 4 | Hair Coloring | ₹500 | 60min | COLOR |
+| 5 | Hair Highlights | ₹800 | 90min | COLOR |
+| 6 | Hair Spa & Treatment | ₹400 | 45min | TREATMENT |
+| 7 | Keratin Treatment | ₹2000 | 90min | TREATMENT |
+| 8 | Facial (Classic) | ₹300 | 40min | SPA |
+| 9 | Facial (Gold) | ₹600 | 60min | SPA |
+| 10 | Head Massage | ₹150 | 20min | SPA |
+| 11 | Bridal Makeup | ₹5000 | 120min | BRIDAL |
+| 12 | Manicure & Pedicure | ₹350 | 40min | SPA |
+
+#### 3. Split Payment - Cash & Online Input Fields
+- When user taps "Split" → two input fields appear
+- **Cash Amount** (₹ prefix, emerald background) + **Online Amount** (₹ prefix, blue background)
+- **Auto-fill**: When you type cash amount, online auto-fills = remaining (and vice versa)
+- **Validation indicator**: "Cash + Online = ₹X" + "✓ Balanced" or "⚠ ₹Y remaining/extra"
+- Submit disabled when split doesn't equal service price
+- API accepts `cashAmount` and `onlineAmount` from request body
+
+#### 4. Service-Entry API Update
+- Accepts `cashAmount` and `onlineAmount` from request body
+- For SPLIT: Uses client-provided amounts, falls back to 50/50 if not provided
+- Both SQLite and Firestore paths updated
+
+### Deployment:
+- GitHub: commit `173786c`
+- Vercel: State READY
+- Live URL: https://dream-look-nu.vercel.app
