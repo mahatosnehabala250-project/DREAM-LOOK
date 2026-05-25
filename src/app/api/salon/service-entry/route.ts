@@ -210,10 +210,212 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error('Error creating service entry:', error)
-    return NextResponse.json(
-      { error: 'Failed to create service entry' },
-      { status: 500 }
-    )
+    console.log('[service-entry] SQLite not available, falling back to Firestore...')
+    try {
+      const body = await request.json()
+      const {
+        employeeId,
+        storeId,
+        serviceId,
+        customerName,
+        customerPhone,
+        paymentMethod = 'CASH',
+        productsUsed = [],
+      } = body
+
+      // 1. Validate required fields
+      if (!employeeId || !storeId || !serviceId || !customerName) {
+        return NextResponse.json(
+          { error: 'employeeId, storeId, serviceId, and customerName are required' },
+          { status: 400 }
+        )
+      }
+
+      const validPaymentMethods = ['CASH', 'ONLINE', 'SPLIT']
+      if (!validPaymentMethods.includes(paymentMethod)) {
+        return NextResponse.json(
+          { error: `Invalid paymentMethod. Must be one of: ${validPaymentMethods.join(', ')}` },
+          { status: 400 }
+        )
+      }
+
+      const { getFirebaseAdmin } = await import('@/lib/firebase-admin')
+      const firestore = getFirebaseAdmin().firestore()
+
+      // 2. Find or create customer
+      let customerId: string
+      let isNewCustomer = false
+
+      if (customerPhone) {
+        // Search customers by phone
+        const phoneLower = customerPhone.toLowerCase()
+        const customersSnap = await firestore
+          .collection('customers')
+          .where('phone', '>=', phoneLower)
+          .where('phone', '<=', phoneLower + '\uf8ff')
+          .limit(1)
+          .get()
+
+        if (!customersSnap.empty) {
+          customerId = customersSnap.docs[0].id
+        } else {
+          // Create new customer
+          const newCustomerRef = await firestore.collection('customers').add({
+            name: customerName,
+            phone: customerPhone,
+            createdAt: new Date().toISOString(),
+          })
+          customerId = newCustomerRef.id
+          isNewCustomer = true
+        }
+      } else {
+        // No phone — create customer anyway
+        const newCustomerRef = await firestore.collection('customers').add({
+          name: customerName,
+          phone: `service_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        })
+        customerId = newCustomerRef.id
+        isNewCustomer = true
+      }
+
+      // Fetch customer data for response
+      const customerDoc = await firestore.collection('customers').doc(customerId).get()
+      const customerData = { id: customerDoc.id, ...customerDoc.data()! }
+
+      // Fetch service to get price
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get()
+      if (!serviceDoc.exists) {
+        return NextResponse.json(
+          { error: 'Service not found' },
+          { status: 400 }
+        )
+      }
+      const serviceData = serviceDoc.data()!
+      const servicePrice = serviceData.price || 0
+      const ownerShare = servicePrice * 0.5
+      const employeeGrossShare = servicePrice * 0.5
+
+      // Calculate product costs
+      let totalProductCost = 0
+      for (const item of productsUsed) {
+        const productDoc = await firestore.collection('products').doc(item.productId).get()
+        if (!productDoc.exists) {
+          return NextResponse.json(
+            { error: `Product not found: ${item.productId}` },
+            { status: 400 }
+          )
+        }
+        const productCost = productDoc.data()?.cost || 0
+        totalProductCost += productCost * (item.quantityUsed || 1)
+      }
+
+      const employeeNetShare = employeeGrossShare - totalProductCost
+
+      // Calculate cash/online amounts
+      let cashAmount = 0
+      let onlineAmount = 0
+      if (paymentMethod === 'CASH') {
+        cashAmount = servicePrice
+      } else if (paymentMethod === 'ONLINE') {
+        onlineAmount = servicePrice
+      } else if (paymentMethod === 'SPLIT') {
+        cashAmount = servicePrice / 2
+        onlineAmount = servicePrice / 2
+      }
+
+      const now = new Date()
+      const today = format(now, 'yyyy-MM-dd')
+      const currentTime = format(now, 'HH:mm')
+
+      // Create appointment
+      const appointmentRef = await firestore.collection('appointments').add({
+        customerId,
+        storeId,
+        employeeId,
+        serviceId,
+        date: today,
+        time: currentTime,
+        status: 'COMPLETED',
+        notes: 'Direct service entry',
+        customerName,
+        serviceName: serviceData.name || '',
+        servicePrice,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      })
+
+      // Create transaction
+      const transactionRef = await firestore.collection('transactions').add({
+        appointmentId: appointmentRef.id,
+        employeeId,
+        storeId,
+        serviceId,
+        servicePrice,
+        ownerShare,
+        employeeGrossShare,
+        totalProductCost,
+        employeeNetShare,
+        paymentMethod,
+        cashAmount,
+        onlineAmount,
+        completedAt: now.toISOString(),
+        isNewCustomer,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      })
+
+      // Build response matching SQLite structure
+      const appointment = {
+        id: appointmentRef.id,
+        customerId,
+        storeId,
+        employeeId,
+        serviceId,
+        date: today,
+        time: currentTime,
+        status: 'COMPLETED',
+        notes: 'Direct service entry',
+        customer: customerData,
+        service: { id: serviceId, ...serviceData },
+        createdAt: now.toISOString(),
+      }
+
+      const transaction = {
+        id: transactionRef.id,
+        appointmentId: appointmentRef.id,
+        employeeId,
+        storeId,
+        serviceId,
+        servicePrice,
+        ownerShare,
+        employeeGrossShare,
+        totalProductCost,
+        employeeNetShare,
+        paymentMethod,
+        cashAmount,
+        onlineAmount,
+        completedAt: now.toISOString(),
+        service: { id: serviceId, ...serviceData },
+        createdAt: now.toISOString(),
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          appointment,
+          transaction,
+          isNewCustomer,
+          customer: customerData,
+        },
+        { status: 201 }
+      )
+    } catch (err) {
+      console.error('[service-entry] Error (Firestore):', err)
+      return NextResponse.json(
+        { error: 'Failed to create service entry' },
+        { status: 500 }
+      )
+    }
   }
 }

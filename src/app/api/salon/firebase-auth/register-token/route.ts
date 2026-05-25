@@ -47,6 +47,5 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.log('[register-token] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
-  });
   }
 }

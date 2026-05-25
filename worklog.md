@@ -1944,3 +1944,32 @@ Returns comprehensive cash register summary for a branch on a given date.
 ### Lint: Zero errors, zero warnings
 
 ---
+
+## Task ID: 3 - Firestore Fallback for Write APIs - 2026-06-26
+
+### Agent: API Fix Agent
+### Task: Add Firestore fallback to service-entry, walkin, cash-register APIs + create customer-search API
+
+### Files Modified (3):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/service-entry/route.ts` | Added Firestore fallback to POST: find/create customer, get service, create appointment + transaction docs |
+| `src/app/api/salon/walkin/route.ts` | Added Firestore fallback to GET, POST, and PATCH: walk-in queue with Firestore reads/writes |
+| `src/app/api/salon/cash-register/route.ts` | Added Firestore fallback to GET and POST: cash register summary + day close operations |
+
+### Files Created (1):
+| File | Description |
+|------|-------------|
+| `src/app/api/salon/customer-search/route.ts` | GET endpoint: search customers by phone number (SQLite first, Firestore fallback) |
+
+### Work Log:
+- Fixed service-entry/route.ts with Firestore fallback for POST
+- Fixed walkin/route.ts POST/PATCH with Firestore fallback (GET also upgraded from empty array)
+- Fixed cash-register/route.ts GET/POST with Firestore fallback
+- Created new customer-search/route.ts API endpoint
+- Verified with lint (0 errors in modified files)
+
+### Stage Summary:
+- All write-heavy API routes now have Firestore fallback for Vercel deployment
+- New customer-search API available for mobile number auto-lookup feature
+- Pattern: try SQLite → catch → fallback to Firestore → catch → 500 error

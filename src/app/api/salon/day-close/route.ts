@@ -24,7 +24,6 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.log('[day-close] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
-  });
   }
 }
 

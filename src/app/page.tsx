@@ -2469,6 +2469,16 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
   const isCheckedOut = !!myTodayAtt?.checkOut;
   const [checkingIn, setCheckingIn] = useState(false);
 
+  // ─── Customer Tracking (Old vs New) ──────────────────────
+  const [newCustomerCount, setNewCustomerCount] = useState(0);
+  const [oldCustomerCount, setOldCustomerCount] = useState(0);
+  const [serviceEntryOpen, setServiceEntryOpen] = useState(false);
+
+  const handleServiceRecorded = useCallback((isNewCustomer: boolean) => {
+    if (isNewCustomer) setNewCustomerCount(c => c + 1);
+    else setOldCustomerCount(c => c + 1);
+  }, []);
+
   const handleSelfCheckIn = useCallback(async () => {
     if (!activeEmployeeId || !authUser) return;
     setCheckingIn(true);
@@ -2595,17 +2605,62 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
         </motion.div>
       )}
 
-      {/* Quick Service Entry — Floating Card */}
+      {/* Quick Service Entry — Card */}
       {authUser && (
         <EmployeeQuickServiceEntry
           employeeId={activeEmployeeId}
           storeId={authUser.storeId}
+          dialogOpen={serviceEntryOpen}
+          onDialogChange={setServiceEntryOpen}
+          onServiceRecorded={handleServiceRecorded}
           onSuccess={() => { refetchToday(); refetchSchedule(); }}
         />
       )}
 
       {/* Quick Stats */}
       <QuickStatsCard todayTransactions={todayTransactions || []} weekTransactions={weekTransactions || []} />
+
+      {/* ─── TODAY'S CUSTOMER TRACKING (Old vs New) ──────── */}
+      {authUser && (newCustomerCount > 0 || oldCustomerCount > 0) && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="shadow-sm border border-amber-100 dark:border-amber-900/40 bg-gradient-to-r from-amber-50/50 to-emerald-50/50 dark:from-amber-950/10 dark:to-emerald-950/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-sm font-semibold">Today&apos;s Customer Report</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-800/40 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{newCustomerCount}</p>
+                    <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">New Customers</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-800/40 flex items-center justify-center">
+                    <UserCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{oldCustomerCount}</p>
+                    <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">Old Customers</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <span>Total: <strong>{newCustomerCount + oldCustomerCount}</strong> customers served today</span>
+                {newCustomerCount > 0 && (
+                  <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px]">
+                    {newCustomerCount + oldCustomerCount > 0 ? Math.round((newCustomerCount / (newCustomerCount + oldCustomerCount)) * 100) : 0}% new
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Earnings Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2809,6 +2864,22 @@ function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps) {
       {/* ─── MY ATTENDANCE HISTORY ─────────────────────────── */}
       {authUser && (
         <MyAttendanceHistory employeeId={authUser.id} branchId={authUser.storeId} />
+      )}
+
+      {/* ─── FLOATING FAB: Quick Service Entry ────────────── */}
+      {authUser && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.5 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setServiceEntryOpen(true)}
+          className="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center hover:shadow-2xl hover:shadow-rose-500/40 transition-shadow"
+          title="New Service Entry"
+        >
+          <Plus className="w-7 h-7" />
+        </motion.button>
       )}
     </div>
   );
@@ -3260,9 +3331,7 @@ function DailyEarningsSparkline({ transactions }: { transactions: Transaction[] 
 // ═══════════════════════════════════════════════════════════════════
 // EMPLOYEE QUICK SERVICE ENTRY
 // ═══════════════════════════════════════════════════════════════════
-function EmployeeQuickServiceEntry({ employeeId, storeId, onSuccess }: { employeeId: string; storeId: string; onSuccess: () => void }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-
+function EmployeeQuickServiceEntry({ employeeId, storeId, dialogOpen, onDialogChange, onServiceRecorded, onSuccess }: { employeeId: string; storeId: string; dialogOpen: boolean; onDialogChange: (open: boolean) => void; onServiceRecorded: (isNewCustomer: boolean) => void; onSuccess: () => void }) {
   return (
     <>
       {/* Prominent "+" button card */}
@@ -3273,7 +3342,7 @@ function EmployeeQuickServiceEntry({ employeeId, storeId, onSuccess }: { employe
       >
         <Card
           className="shadow-md cursor-pointer border-2 border-dashed border-rose-300 dark:border-rose-700 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 hover:border-solid hover:border-rose-400 hover:shadow-lg hover:shadow-rose-500/10 transition-all duration-200 group"
-          onClick={() => setDialogOpen(true)}
+          onClick={() => onDialogChange(true)}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -3298,18 +3367,19 @@ function EmployeeQuickServiceEntry({ employeeId, storeId, onSuccess }: { employe
       {/* Dialog */}
       <QuickServiceEntryDialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => onDialogChange(false)}
         employeeId={employeeId}
         storeId={storeId}
-        onSuccess={() => { setDialogOpen(false); onSuccess(); }}
+        onServiceRecorded={onServiceRecorded}
+        onSuccess={() => { onDialogChange(false); onSuccess(); }}
       />
     </>
   );
 }
 
 // ─── QUICK SERVICE ENTRY DIALOG ──────────────────────────────────
-function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess }: {
-  open: boolean; onClose: () => void; employeeId: string; storeId: string; onSuccess: () => void;
+function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onServiceRecorded, onSuccess }: {
+  open: boolean; onClose: () => void; employeeId: string; storeId: string; onServiceRecorded?: (isNewCustomer: boolean) => void; onSuccess: () => void;
 }) {
   const { data: services } = useFetch<Service[]>('/api/salon/services');
   const { data: products } = useFetch<Product[]>('/api/salon/products');
@@ -3344,7 +3414,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess
     };
   }, [selectedService, selectedProducts, productQty, products]);
 
-  // Phone lookup
+  // Phone lookup — uses dedicated search API
   const handlePhoneLookup = useCallback(async (phone: string) => {
     if (phone.length < 4) {
       setCustomerLookupDone(false);
@@ -3353,8 +3423,9 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess
     }
     setLookingUp(true);
     try {
-      const allCustomers = await (await fetch('/api/salon/customers')).json();
-      const match = allCustomers.find((c: Customer) => c.phone && c.phone.endsWith(phone));
+      const res = await fetch(`/api/salon/customer-search?phone=${encodeURIComponent(phone)}`);
+      const customers = await res.json();
+      const match = Array.isArray(customers) && customers.length > 0 ? customers[0] : null;
       if (match) {
         setExistingCustomer(match);
         setCustomerName(match.name);
@@ -3413,10 +3484,12 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess
         toast.success('New customer added + Service recorded! 🎉', {
           description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
         });
+        onServiceRecorded?.(true);
       } else {
-        toast.success('Service recorded for existing customer! ✅', {
+        toast.success('Service recorded for Old Customer! ✅', {
           description: `${customerName} — ${selectedService?.name} (${formatCurrency(selectedService?.price || 0)})`,
         });
+        onServiceRecorded?.(false);
       }
       // Reset form
       setCustomerPhone(''); setCustomerName(''); setSelectedServiceId('');
@@ -3426,7 +3499,7 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess
     } catch (e) {
       toast.error('Failed to record service', { description: (e as Error).message });
     } finally { setSubmitting(false); }
-  }, [employeeId, storeId, selectedServiceId, customerName, customerPhone, paymentMethod, selectedProducts, productQty, selectedService, onSuccess]);
+  }, [employeeId, storeId, selectedServiceId, customerName, customerPhone, paymentMethod, selectedProducts, productQty, selectedService, onSuccess, onServiceRecorded]);
 
   const canSubmit = customerName.trim().length > 0 && selectedServiceId.length > 0 && !submitting;
 
@@ -3454,11 +3527,11 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onSuccess
             {customerLookupDone && customerPhone.length >= 4 && (
               <div className="flex items-center gap-1.5">
                 {existingCustomer ? (
-                  <Badge className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold px-2 py-0.5">
-                    <UserCheck className="w-3 h-3 mr-1" /> Existing Customer
+                  <Badge className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-semibold px-2 py-0.5">
+                    <UserCheck className="w-3 h-3 mr-1" /> Old Customer
                   </Badge>
                 ) : (
-                  <Badge className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+                  <Badge className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold px-2 py-0.5 border border-emerald-200 dark:border-emerald-800">
                     <UserPlus className="w-3 h-3 mr-1" /> New Customer
                   </Badge>
                 )}

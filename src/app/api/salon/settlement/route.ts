@@ -64,8 +64,6 @@ export async function GET(request: NextRequest) {
     console.log('[settlement] SQLite not available, returning empty array fallback for Vercel...');
     return NextResponse.json([]);
   }
-    )
-  }
 }
 
 async function buildEmployeeSettlement(
