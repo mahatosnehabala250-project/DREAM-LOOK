@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import {
   Scissors, MapPin, Clock, ChevronRight, Search, Moon, Sun,
   Calendar, BarChart3, Building2, Crown, Sparkles, Heart,
-  Users, MessageSquare, HelpCircle,
+  Users, MessageSquare, HelpCircle, ArrowUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,37 @@ function FooterQuickStats() {
         </span>
       </div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BACK TO TOP BUTTON
+// ═══════════════════════════════════════════════════════════════════
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <button
+      onClick={scrollToTop}
+      aria-label="Back to top"
+      className={`fixed bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/30 flex items-center justify-center transition-all duration-300 cursor-pointer hover:scale-110 hover:shadow-xl hover:shadow-rose-500/40 active:scale-95 ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+      }`}
+    >
+      <ArrowUp className="w-5 h-5" />
+    </button>
   );
 }
 
@@ -399,6 +430,9 @@ export default function Home() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Back to Top Button (authenticated dashboard only) */}
+      {authScreen === 'authenticated' && <BackToTopButton />}
 
       {/* Mobile Bottom Navigation (only for non-authenticated users) */}
       {!authUser && <MobileBottomNav activeRole={activeRole} setActiveRole={setActiveRole} />}

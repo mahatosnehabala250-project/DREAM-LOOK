@@ -248,16 +248,24 @@ export function CustomerView() {
               {(stores || []).map((store, idx) => {
                 const borderColors = ['border-l-rose-500', 'border-l-amber-500', 'border-l-emerald-500'];
                 const iconGradients = [STORE_GRADIENTS[0], STORE_GRADIENTS[1], STORE_GRADIENTS[2]];
+                const isRecommended = leastBusyStoreId === store.id;
+                const busyCount = storeBusyCounts[store.id] ?? 0;
+                const estimatedWaitMin = busyCount * 30;
                 return (
                 <StaggerItem key={store.id}>
-                <div className="hover:-translate-y-1 active:scale-[0.98] transition-transform duration-150">
+                <div className="hover:-translate-y-1 active:scale-[0.98] transition-transform duration-150 relative">
+                  {isRecommended && (
+                    <div className="absolute -top-2.5 -right-2 z-10 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[9px] font-bold px-2.5 py-1 rounded-full shadow-md shadow-emerald-500/25 flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" /> Recommended
+                    </div>
+                  )}
                   <GlassCard className={`cursor-pointer transition-all hover:shadow-xl border-l-4 ${borderColors[idx] || borderColors[0]} ${
                     selectedStore === store.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                   }`} onClick={() => { setSelectedStore(store.id); setSelectedEmployeeId(''); setSelectedTimeSlot(''); }}>
                     <CardContent className="p-5">
                       <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradients[idx] || iconGradients[0]} text-white`}>
-                          <Building2 className="w-5 h-5" />
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradients[idx] || iconGradients[0]} text-white shadow-md`}>
+                          <Building2 className="w-6 h-6" />
                         </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -276,12 +284,21 @@ export function CustomerView() {
                             <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {store.phone}</span>
                             <span>{store.city}</span>
                           </div>
-                          <div className="mt-2 flex items-center gap-2 flex-wrap">
-                            <StoreStatusBadge count={storeBusyCounts[store.id] ?? 0} />
-                            {leastBusyStoreId === store.id && (
-                              <Badge className="text-[10px] h-5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
-                                <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Best availability now
-                              </Badge>
+                          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                            <StoreStatusBadge count={busyCount} />
+                            {/* Estimated Wait Time */}
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                              busyCount === 0
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : busyCount <= 3
+                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                  : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              <Timer className="w-3 h-3" />
+                              {busyCount === 0 ? 'No wait' : `~${estimatedWaitMin} min wait`}
+                            </span>
+                            {!isRecommended && (
+                              <span className="text-[10px] text-muted-foreground">{busyCount} today</span>
                             )}
                           </div>
                         </div>

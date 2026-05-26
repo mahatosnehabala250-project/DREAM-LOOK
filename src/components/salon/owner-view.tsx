@@ -339,38 +339,58 @@ export function OwnerView() {
             {serviceChartData.length === 0 ? (
               <EmptyState icon={Layers} title="No service data yet" description="Popularity data will appear as bookings are made" />
             ) : (
-              <div className="space-y-3">
-                <ResponsiveContainer width="100%" height={Math.max(serviceChartData.length * 48, 200)}>
-                  <BarChart data={serviceChartData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
-                    <RTooltip
-                      formatter={(value: number, name: string) => {
-                        if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
-                        return [value, 'Bookings'];
-                      }}
-                    />
-                    <Bar dataKey="count" name="count" fill="#f43f5e" radius={[0, 6, 6, 0]} barSize={24}>
-                      {serviceChartData.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={index === 0 ? '#f43f5e' : index === 1 ? '#fb7185' : index === 2 ? '#fda4af' : '#fecdd3'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                {/* Revenue badges */}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {serviceChartData.slice(0, 5).map((s, i) => (
-                    <div key={s.name} className="flex items-center gap-1.5 text-xs bg-muted/50 dark:bg-muted/20 rounded-full px-2.5 py-1">
-                      <span className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-rose-500' : i === 1 ? 'bg-rose-400' : i === 2 ? 'bg-rose-300' : 'bg-rose-200 dark:bg-rose-700'}`} />
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-muted-foreground">{s.count} bookings</span>
-                      <span className="text-rose-600 dark:text-rose-400 font-semibold">{formatCurrency(s.revenue)}</span>
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                {/* Service list with sparkline bars, trending badges, and crown */}
+                <div className="space-y-2">
+                  {serviceChartData.map((s, i) => {
+                    const maxCount = serviceChartData[0]?.count || 1;
+                    const barWidth = Math.max((s.count / maxCount) * 100, 8);
+                    const isTop3 = i < 3;
+                    const barColors = ['bg-rose-500', 'bg-rose-400', 'bg-rose-300'];
+                    return (
+                      <div key={s.name} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-muted/30 transition-colors">
+                        {/* Rank + Crown for #1 */}
+                        <div className="w-7 shrink-0 flex justify-center">
+                          {i === 0 ? (
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-sm">
+                              <Crown className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          ) : (
+                            <span className={`text-sm font-bold ${isTop3 ? 'text-rose-500 dark:text-rose-400' : 'text-muted-foreground'}`}>#{i + 1}</span>
+                          )}
+                        </div>
+
+                        {/* Service name + trending badge */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-sm font-medium truncate ${i === 0 ? 'text-rose-700 dark:text-rose-300' : ''}`}>{s.name}</span>
+                            {isTop3 && (
+                              <Badge className="text-[9px] h-4 px-1.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white border-0 shrink-0">
+                                <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Trending
+                              </Badge>
+                            )}
+                          </div>
+                          {/* Sparkline bar */}
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-muted/60 dark:bg-muted/30 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${barColors[i] || 'bg-rose-200 dark:bg-rose-800'} transition-all duration-700 ease-out`}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm font-bold ${i === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>
+                            {formatCurrency(s.revenue)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">{s.count} bookings</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -434,11 +454,9 @@ export function OwnerView() {
                     <TableHead className="text-right">Avg/Service</TableHead>
                   </TableRow>
                 </TableHeader>
-                <StaggerContainer className="contents">
                 <TableBody>
                   {(yearAnalytics || monthAnalytics)!.employeePerformance.map((emp, i) => (
-                    <StaggerItem key={emp.employeeId}>
-                    <TableRow className="hover:bg-muted/50 transition-colors">
+                    <TableRow key={emp.employeeId} className="hover:bg-muted/50 transition-colors animate-[fadeInUp_0.3s_ease-out_forwards] opacity-0" style={{ animationDelay: `${i * 40}ms` }}>
                       <TableCell>
                         {i === 0 ? <Crown className="w-4 h-4 text-amber-500" /> : <span className="text-muted-foreground text-sm">{i + 1}</span>}
                       </TableCell>
@@ -450,10 +468,8 @@ export function OwnerView() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(emp.avgPerTransaction)}</TableCell>
                     </TableRow>
-                    </StaggerItem>
                   ))}
                 </TableBody>
-                </StaggerContainer>
               </Table>
             </div>
           )}

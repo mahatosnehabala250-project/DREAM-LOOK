@@ -9,7 +9,7 @@ import {
   Activity, History, Play, RefreshCw, Calculator, Plus, Star, Trophy,
   Timer, LogIn, LogOut, UserCheck, UserPlus, Percent,
   Banknote, CreditCard, Receipt, Sparkles, AlertTriangle, Wallet, Smartphone,
-  CalendarX, ClipboardCheck, HandCoins,
+  CalendarX, ClipboardCheck, HandCoins, Flame, ArrowUpRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -1051,11 +1051,37 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
     return (attendance || []).filter(a => a.date >= monthStart && a.date <= monthEnd);
   }, [attendance, monthStart, monthEnd]);
 
+  // Attendance streak calculation (consecutive days present from today backwards)
+  const streak = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const sortedAll = (attendance || []).filter(a => a.status === 'PRESENT' || a.status === 'HALF_DAY').sort((a, b) => b.date.localeCompare(a.date));
+    let count = 0;
+    let checkDate = new Date();
+    // Allow streak to start from today if today is present
+    const todayRecord = sortedAll.find(a => a.date === todayStr && (a.status === 'PRESENT' || a.status === 'HALF_DAY'));
+    if (!todayRecord) {
+      // Start from yesterday
+      checkDate = subDays(new Date(), 1);
+    }
+    for (let i = 0; i < 365; i++) {
+      const dateStr = format(checkDate, 'yyyy-MM-dd');
+      const record = sortedAll.find(a => a.date === dateStr && (a.status === 'PRESENT' || a.status === 'HALF_DAY'));
+      if (record) {
+        count++;
+        checkDate = subDays(checkDate, 1);
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [attendance]);
+
   const stats = useMemo(() => {
     const daysInMonth = monthEndDate.getDate();
     const present = monthAttendance.filter(a => a.status === 'PRESENT').length;
     const halfDay = monthAttendance.filter(a => a.status === 'HALF_DAY').length;
     const absent = monthAttendance.filter(a => a.status === 'ABSENT').length;
+    const leave = monthAttendance.filter(a => a.status === 'LEAVE').length;
     const totalHours = monthAttendance.reduce((s, a) => {
       if (a.checkIn && a.checkOut) {
         const [h1, m1] = a.checkIn.split(':').map(Number);
@@ -1064,7 +1090,7 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
       }
       return s;
     }, 0);
-    return { daysInMonth, present, halfDay, absent, totalHours: Math.round(totalHours * 10) / 10, recorded: monthAttendance.length };
+    return { daysInMonth, present, halfDay, absent, leave, totalHours: Math.round(totalHours * 10) / 10, recorded: monthAttendance.length };
   }, [monthAttendance, monthEndDate]);
 
   const calendarDays = useMemo(() => {
@@ -1101,6 +1127,34 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
           <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 rounded" />)}</div>
         ) : (
           <>
+            {/* Streak & Hours Hero Cards */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-4 text-white">
+                <div className="absolute -top-3 -right-3 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-full bg-white/10 blur-lg" />
+                <div className="relative">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Flame className="w-4 h-4" />
+                    <p className="text-[10px] font-medium text-white/80 uppercase tracking-wider">Current Streak</p>
+                  </div>
+                  <p className="text-3xl font-black">{streak}</p>
+                  <p className="text-[10px] text-white/70">consecutive day{streak !== 1 ? 's' : ''} present</p>
+                </div>
+              </div>
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 p-4 text-white">
+                <div className="absolute -top-3 -right-3 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-full bg-white/10 blur-lg" />
+                <div className="relative">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Timer className="w-4 h-4" />
+                    <p className="text-[10px] font-medium text-white/80 uppercase tracking-wider">Hours This Month</p>
+                  </div>
+                  <p className="text-3xl font-black">{stats.totalHours}<span className="text-lg font-medium ml-0.5">h</span></p>
+                  <p className="text-[10px] text-white/70">across {stats.recorded} day{stats.recorded !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Stats Row */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
               <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
@@ -1132,10 +1186,11 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
               ))}
               {calendarDays.map((day, i) => (
                 <div key={i} className={`relative w-full aspect-square flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${!day.date ? '' :
-                  day.att?.status === 'PRESENT' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
-                  day.att?.status === 'HALF_DAY' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' :
-                  day.att?.status === 'ABSENT' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' :
-                  isToday(new Date(day.date)) ? 'ring-2 ring-rose-400' :
+                  day.att?.status === 'PRESENT' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-800' :
+                  day.att?.status === 'HALF_DAY' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-800' :
+                  day.att?.status === 'ABSENT' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ring-1 ring-red-200 dark:ring-red-800' :
+                  day.att?.status === 'LEAVE' ? 'bg-gray-100 dark:bg-gray-900/40 text-gray-500 dark:text-gray-400 ring-1 ring-gray-200 dark:ring-gray-700' :
+                  isToday(new Date(day.date)) ? 'ring-2 ring-rose-400 bg-rose-50 dark:bg-rose-950/20' :
                   'bg-muted/30 dark:bg-muted/10'
                 }`}>
                   {day.day > 0 ? day.day : ''}
@@ -1147,11 +1202,12 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
             </div>
 
             {/* Legend */}
-            <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700" /> Present</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700" /> Half Day</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700" /> Absent</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-muted/30 border border-muted-300" /> Not Recorded</span>
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-100 dark:bg-emerald-900/40 ring-1 ring-emerald-200 dark:ring-emerald-800" /> Present</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-200 dark:ring-amber-800" /> Half Day</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-100 dark:bg-red-900/40 ring-1 ring-red-200 dark:ring-red-800" /> Absent</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-gray-100 dark:bg-gray-900/40 ring-1 ring-gray-200 dark:ring-gray-700" /> Leave</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-muted/30 ring-1 ring-muted-300" /> Not Recorded</span>
             </div>
 
             {/* Recent Records */}

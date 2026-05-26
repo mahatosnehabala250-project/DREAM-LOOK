@@ -65,6 +65,112 @@ import {
   ExpenseCategoryBadge, PaymentBreakdownCard, StaggerContainer, StaggerItem,
 } from './common';
 
+// ─── REVENUE TARGET PROGRESS RING ──────────────────────────────
+const DAILY_REVENUE_TARGET = 20000;
+
+function RevenueTargetRing({ revenue }: { revenue: number }) {
+  const percentage = Math.min((revenue / DAILY_REVENGE_TARGET) * 100, 100);
+  const remaining = Math.max(DAILY_REVENGE_TARGET - revenue, 0);
+  // SVG circle params
+  const radius = 58;
+  const stroke = 10;
+  const normalizedRadius = radius - stroke / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  const ringColor = percentage >= 100
+    ? 'text-emerald-500'
+    : percentage >= 75
+      ? 'text-amber-500'
+      : percentage >= 50
+        ? 'text-orange-500'
+        : 'text-rose-500';
+
+  const statusLabel = percentage >= 100
+    ? 'Target Achieved!'
+    : percentage >= 75
+      ? 'Almost There'
+      : percentage >= 50
+        ? 'Halfway Done'
+        : 'Keep Going';
+
+  return (
+    <Card className="shadow-sm overflow-hidden">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-6">
+          {/* SVG Progress Ring */}
+          <div className="relative shrink-0">
+            <svg
+              height={radius * 2}
+              width={radius * 2}
+              className="transform -rotate-90"
+            >
+              {/* Background circle */}
+              <circle
+                stroke="currentColor"
+                className="text-muted/30 dark:text-muted/20"
+                fill="transparent"
+                strokeWidth={stroke}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+              />
+              {/* Progress circle */}
+              <circle
+                stroke="currentColor"
+                className={`${ringColor}`}
+                fill="transparent"
+                strokeWidth={stroke}
+                strokeLinecap="round"
+                strokeDasharray={circumference + ' ' + circumference}
+                style={{ strokeDashoffset, transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease' }}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+              />
+            </svg>
+            {/* Center text */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-black">{Math.round(percentage)}%</span>
+              <span className="text-[9px] text-muted-foreground font-medium">of target</span>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="flex-1 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Daily Revenue Target</p>
+              <p className="text-xs text-muted-foreground">Goal: {formatCurrency(DAILY_REVENGE_TARGET)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-2.5">
+                <p className="text-[10px] text-muted-foreground">Earned</p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(revenue)}</p>
+              </div>
+              <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 p-2.5">
+                <p className="text-[10px] text-muted-foreground">Remaining</p>
+                <p className="text-sm font-bold text-rose-700 dark:text-rose-400">{formatCurrency(remaining)}</p>
+              </div>
+            </div>
+            <Badge
+              variant="secondary"
+              className={`font-medium ${
+                percentage >= 100
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                  : percentage >= 75
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+              }`}
+            >
+              {statusLabel}
+            </Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TodayVsYesterdayComparison({ storeId }: { storeId: string }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
@@ -407,11 +513,9 @@ function ManagerCustomerSection({ storeId }: { storeId: string }) {
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <StaggerContainer className="contents">
                   <TableBody>
-                    {filteredCustomers.slice(0, 20).map((customer) => (
-                      <StaggerItem key={customer.id}>
-                      <TableRow key={customer.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleSelectCustomer(customer)}>
+                    {filteredCustomers.slice(0, 20).map((customer, i) => (
+                      <TableRow key={customer.id} className="hover:bg-muted/50 transition-colors cursor-pointer animate-[fadeInUp_0.3s_ease-out_forwards] opacity-0" style={{ animationDelay: `${i * 40}ms` }} onClick={() => handleSelectCustomer(customer)}>
                         <TableCell>
                           <div className="flex items-center gap-2.5">
                             <Avatar className="h-8 w-8">
@@ -430,10 +534,8 @@ function ManagerCustomerSection({ storeId }: { storeId: string }) {
                           </Button>
                         </TableCell>
                       </TableRow>
-                      </StaggerItem>
                     ))}
                   </TableBody>
-                  </StaggerContainer>
                 </Table>
               </div>
             </ScrollArea>
@@ -966,6 +1068,9 @@ export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         <StatCard icon={Users} label="Staff Present" value={`${presentCount}/${(attendance || []).length || '-'}`} sub="Checked in today" gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
         <StatCard icon={AlertTriangle} label="Low Stock Alerts" value={String(lowStockCount)} sub="Items need restocking" gradient="bg-gradient-to-r from-amber-500 to-orange-500" />
       </div>
+
+      {/* Revenue Target Progress Ring */}
+      <RevenueTargetRing revenue={todayRevenue} />
 
       {/* Today vs Yesterday Comparison */}
       <TodayVsYesterdayComparison storeId={activeStoreId} />
