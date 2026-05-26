@@ -3134,3 +3134,122 @@ Stage Summary:
 - 5 new visual/functional features added across all views
 - All CSS-based animations (no additional JS overhead)
 - Zero lint errors
+
+---
+
+## Cron QA Pass + Bug Fixes + Feature Enhancement - 2026-05-26 (Round 2)
+
+### Task: Automated QA, bug fixes, and new feature development
+
+### QA Results (agent-browser):
+| Test | Result |
+|------|--------|
+| Landing page | ✅ Pass |
+| Employee login (9900000003) | ✅ Pass |
+| Manager login (9900000002) | ✅ Pass |
+| Owner login (9900000001) | ✅ Pass |
+| All logout flows (×3) | ✅ Pass |
+| Session isolation | ✅ Pass |
+
+### Bugs Found & Fixed (3):
+
+#### 1. loading.tsx Nested HTML (HIGH — Hydration Error)
+- **Root Cause**: `src/app/loading.tsx` rendered `<html><body>` inside existing body, causing React hydration mismatch
+- **Fix**: Replaced with a simple `<div>` wrapper, removed `<html>` and `<body>` tags, added dark mode background classes
+- **File**: `src/app/loading.tsx`
+
+#### 2. StaggerContainer Wrapping Table Rows (MEDIUM — DOM Error)
+- **Root Cause**: `StaggerItem` renders `motion.div` which wrapped `<TableRow>` elements, creating invalid `<div><tr>` DOM structure
+- **Fix**: Replaced `StaggerContainer`/`StaggerItem` with CSS `animate-[fadeInUp_0.3s_ease-out_forwards] opacity-0` + staggered `animationDelay` on each row
+- **Files**: `src/components/salon/manager-view.tsx`, `src/components/salon/owner-view.tsx`
+- **Added**: `@keyframes fadeInUp` in `globals.css`
+
+#### 3. Transient 500 Errors (LOW — Turbopack Cache)
+- **Root Cause**: Turbopack cached old `salon-hooks.ts` module reference after file was renamed to `.tsx`
+- **Status**: Self-resolved after recompilation; no code fix needed
+
+### New Features Added (5):
+
+#### 1. Employee Attendance Streak & Hours
+- **Streak Card**: Orange-to-amber gradient showing consecutive days present
+- **Hours Card**: Rose gradient showing total hours worked this month
+- **Color-coded cells**: Green (present), amber (half-day), red (absent), gray (leave) in attendance calendar
+- **File**: `src/components/salon/employee-view.tsx`
+
+#### 2. Manager Revenue Target Progress Ring
+- **SVG circular ring** (116px) with smooth CSS transition animation
+- **Dynamic color**: Rose (<50%), orange (50-75%), amber (75-99%), emerald (100%+)
+- **Target**: ₹20,000 daily with earned/remaining display
+- **Status badge**: "Keep Going" / "Halfway Done" / "Almost There" / "Target Achieved!"
+- **File**: `src/components/salon/manager-view.tsx`
+
+#### 3. Owner Service Popularity Enhancements
+- **Crown icon** on #1 most booked service
+- **Trending badges** (rose-pink gradient) on top 3 services
+- **Sparkline bars** showing relative popularity per service
+- **Better mobile layout**: Replaced recharts BarChart with custom list + progress bars
+- **File**: `src/components/salon/owner-view.tsx`
+
+#### 4. Customer Store Card Enhancements
+- **"Recommended" badge**: Emerald gradient pill on least busy store
+- **Estimated wait time**: "~X min wait" (green/amber/red) or "No wait"
+- **Larger icons**: Store icons increased from 10×10 to 12×12 with shadow
+- **File**: `src/components/salon/customer-view.tsx`
+
+#### 5. Floating Back-to-Top Button
+- **Fixed position**: Bottom-right, visible after 300px scroll
+- **Rose/pink gradient** with ArrowUp icon
+- **Smooth CSS animations**: opacity + translate for appear/disappear
+- **Only on authenticated pages**: Hidden on landing/login
+- **File**: `src/app/page.tsx`
+
+### Files Modified:
+| File | Change |
+|------|--------|
+| `src/app/loading.tsx` | Removed html/body wrapper, fixed hydration |
+| `src/app/globals.css` | Added fadeInUp keyframe animation |
+| `src/app/page.tsx` | Added floating BackToTop button |
+| `src/components/salon/employee-view.tsx` | Attendance streak + hours cards |
+| `src/components/salon/manager-view.tsx` | Revenue target ring, CSS stagger on tables |
+| `src/components/salon/owner-view.tsx` | Service trending badges, CSS stagger on tables |
+| `src/components/salon/customer-view.tsx` | Store wait time + recommended badge |
+
+### Deploy: Pushed to GitHub (commit 03addc3), Vercel auto-deploy
+
+### Lint: Zero errors | Dev server: Running on port 3000, all 200s
+
+---
+
+## Current Project Status (2026-05-26)
+
+### What's Working (Complete)
+- ✅ **Auth**: Phone-based login for 3 roles with localStorage persistence
+- ✅ **Hydration**: Fixed SSR/client mismatch — no errors
+- ✅ **Database**: Clean data — 3 stores, 11 employees, 12 services, 12 products, 11 customers
+- ✅ **API Layer**: 20+ endpoints, all returning 200
+- ✅ **Frontend**: Modular 6-file architecture with comprehensive views
+- ✅ **Animations**: Confetti, stagger lists, CSS fadeInUp, SVG progress ring
+- ✅ **Live Data**: Store busy indicators, footer quick stats, wait time estimates
+- ✅ **Mobile**: Bottom nav, responsive design, safe areas, back-to-top button
+- ✅ **Dark Mode**: next-themes with toggle
+- ✅ **Employee Tools**: Attendance streak, hours tracker, commission calculator, calendar
+- ✅ **Manager Tools**: Revenue target ring, today vs yesterday, walk-in queue, cash register, day close
+- ✅ **Owner Tools**: Store comparison, trending services, settlement engine, audit log, profit calc
+
+### Known Issues / Risks (Low Priority)
+1. **Negative employee earnings**: Demo data has product costs exceeding service prices
+2. **Negative inventory**: Some products have negative quantities from test transactions
+3. **No authentication**: Using phone-based demo login (NextAuth available in deps)
+
+### Recommendations for Next Phase
+
+| Priority | Task | Effort |
+|----------|------|--------|
+| 🔴 High | Add NextAuth.js authentication with role-based access control | Medium |
+| 🟡 Medium | Customer Loyalty Points & Tiers system | Medium |
+| 🟡 Medium | Booking Heatmap Calendar (demand visualization) | Medium |
+| 🟡 Medium | Service Upsell Suggestions ("Complete Your Look") | Medium |
+| 🟡 Medium | Print-friendly settlement reports | Low |
+| 🟢 Low | WebSocket real-time updates | High |
+| 🟢 Low | Multi-language support (Hindi/Tamil) | Medium |
+| 🟢 Low | PWA mobile app shell | High |
