@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateDoc, deleteDoc, getDoc, resolveStore } from '@/lib/firestore';
+import { db } from '@/lib/db';
 
 export async function DELETE(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await deleteDoc('expenses', id);
+    await db.expense.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting expense:', error);
@@ -33,20 +33,13 @@ export async function PATCH(
     if (amount !== undefined) updateData.amount = parseFloat(amount);
     if (expenseDate) updateData.expenseDate = expenseDate;
 
-    await updateDoc('expenses', id, updateData);
+    const expense = await db.expense.update({
+      where: { id },
+      data: updateData,
+      include: { Store: true },
+    });
 
-    const expense = await getDoc('expenses', id);
-    if (!expense) {
-      return NextResponse.json(
-        { error: 'Expense not found' },
-        { status: 404 }
-      );
-    }
-
-    // Include store relation
-    const store = expense.storeId ? await resolveStore(expense.storeId) : null;
-
-    return NextResponse.json({ ...expense, store });
+    return NextResponse.json(expense);
   } catch (error) {
     console.error('Error updating expense:', error);
     return NextResponse.json(
