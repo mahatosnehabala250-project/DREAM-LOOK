@@ -2884,3 +2884,65 @@ The `page.tsx` had already been split into 6 component modules:
 1. **TDZ errors in React**: Variables declared with `const`/`let` used before their declaration in the same scope cause "Cannot access X before initialization". Unlike function declarations, `const`/`let` are NOT hoisted.
 2. **Missing lucide-react imports**: Not caught by TypeScript/lint because the component using the icon may be lazily loaded. Always verify icon usage matches imports after refactoring.
 3. **Firebase module-level init**: `admin.initializeApp()` at module top-level crashes during Vercel build if env vars are missing. Use lazy initialization (Proxy or function wrapper) to defer until runtime.
+
+---
+
+## Payment Recording & History System - 2026-05-26
+
+### User Request (Hindi)
+"Manager jo har din payment karta he salary end mein jiska jitna hua he employee ka, kya manager and owner ka dekhne ka koi jagah he wo sab and manager jo payment salary kiya daily ka wo bhi entry record ka he kya and check all, nhi he to add karo also real add database, firebase sab mein frontend backend database"
+
+### Features Built
+
+| # | Feature | Location | Description |
+|---|---------|----------|-------------|
+| 1 | **Manager Payment History** | `manager-view.tsx` → `ManagerPaymentHistorySection` | Full payment history tab with month picker, employee filter, grouped by date, delete payment, 4 summary cards (Total Paid, Earned, Deducted, Employees Paid) |
+| 2 | **Manager Daily Payment** | `manager-view.tsx` → `ManagerDailyPaymentSection` | Already existed — shows today's employee list with earned/advance/net amounts and "Mark Paid" button |
+| 3 | **Owner All Store Payments** | `owner-view.tsx` → `OwnerPaymentRecords` | All-store payment view with store/employee/month filters, grouped by store, 5 summary cards (Total Paid, Earned, Deducted, Cash, Online) |
+| 4 | **Employee My Payment History** | `employee-view.tsx` → `EmployeePaymentHistory` | Employee's personal payment history with month filter, 3 summary cards (Received, Gross Earned, Deducted), scrollable list |
+| 5 | **API GET Enhanced** | `payments/route.ts` | Added date range (from/to), date, purpose query filters |
+| 6 | **API DELETE** | `payments/[id]/route.ts` | Delete payment with confirmation dialog |
+| 7 | **API PATCH** | `payments/[id]/route.ts` | Update payment amount, notes, receipt, etc. |
+| 8 | **Firebase Sync** | All payment API routes | All CRUD operations sync to Firestore `payments` collection |
+| 9 | **Schema Enhancement** | `prisma/schema.prisma` | Added `amount`, `purpose`, `notes`, `receiptNumber` fields to Payment model |
+
+### Payment Purposes Supported
+- 💰 DAILY_EARNINGS — Daily service commission payout
+- 📅 WEEKLY_SALARY — Weekly salary payment
+- 📆 MONTHLY_SALARY — Monthly salary payment
+- 🎁 BONUS — Bonus/incentive payment
+- 📋 SETTLEMENT — Monthly settlement payout
+
+### Database Schema Changes (Payment model)
+```prisma
++ amount          Float     // Explicit payment amount (was only inferred from netPaid)
++ purpose         String    // DAILY_EARNINGS, WEEKLY_SALARY, MONTHLY_SALARY, BONUS, SETTLEMENT
++ notes           String?   // Optional notes about the payment
++ receiptNumber   String?   // Optional receipt number for tracking
+```
+
+### Files Modified (7)
+
+| File | Change |
+|------|--------|
+| `prisma/schema.prisma` | Added amount, purpose, notes, receiptNumber to Payment model |
+| `src/lib/salon-types.ts` | Updated Payment interface with new fields |
+| `src/app/api/salon/payments/route.ts` | Enhanced GET with date range/purpose filters, Firebase sync |
+| `src/app/api/salon/payments/[id]/route.ts` | NEW — DELETE + PATCH endpoints with Firebase sync |
+| `src/components/salon/manager-view.tsx` | Added Payments tab, ManagerPaymentHistorySection (~180 lines) |
+| `src/components/salon/employee-view.tsx` | Added EmployeePaymentHistory component (~100 lines), Payment type import |
+| `src/components/salon/owner-view.tsx` | Added Payments tab, OwnerPaymentRecords component (~170 lines) |
+
+### Verification
+- ✅ Manager login → Payments tab visible, Payment History section works
+- ✅ Owner login → Payments tab visible, All Store Payments section works
+- ✅ Employee login → My Payment History section visible with month filter
+- ✅ Zero lint errors, zero console errors on all views
+- ✅ Vercel deployment: READY (SHA: 7a089f5)
+
+### Demo Credentials
+| Role | Phone | Name |
+|------|-------|------|
+| Employee | 9900000003 | Anitha Reddy |
+| Manager | 9900000002 | Priya Sharma |
+| Owner | 9900000001 | Rajesh Kumar |
