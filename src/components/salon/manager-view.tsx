@@ -907,6 +907,7 @@ export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
     { id: 'mgr-staff', label: 'Staff' },
     { id: 'mgr-inventory', label: 'Inventory' },
     { id: 'mgr-customers', label: 'Customers' },
+    { id: 'mgr-payments', label: 'Payments' },
     { id: 'mgr-expenses', label: 'Expenses' },
     { id: 'mgr-cash-register', label: 'Cash Register' },
     { id: 'mgr-day-close', label: 'Day Close' },
@@ -1179,6 +1180,11 @@ export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
 
       {/* ─── DAILY PAYMENT ───────────────────────────────────── */}
       <ManagerDailyPaymentSection storeId={activeStoreId} authUser={authUser} />
+
+      {/* ─── PAYMENTS ────────────────────────────────────────── */}
+      <div id="mgr-payments" className="scroll-mt-36">
+      <ManagerPaymentHistorySection storeId={activeStoreId} authUser={authUser} />
+      </div>
 
       {/* ─── EXPENSES ────────────────────────────────────────── */}
       <div id="mgr-expenses" className="scroll-mt-36">
@@ -1498,6 +1504,187 @@ function ManagerLeaveRequestsSection({ storeId, authUser }: { storeId: string; a
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGER PAYMENT HISTORY
+// ═══════════════════════════════════════════════════════════════════
+function ManagerPaymentHistorySection({ storeId, authUser }: { storeId: string; authUser?: AuthUser | null }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
+  const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
+
+  const { data: payments, refetch } = useFetch<Payment[]>(
+    storeId ? `/api/salon/payments?branchId=${storeId}&month=${selectedMonth}${selectedEmployee !== 'all' ? `&employeeId=${selectedEmployee}` : ''}` : null
+  );
+  const { data: employees } = useFetch<Employee[]>(storeId ? `/api/salon/employees?storeId=${storeId}` : null);
+  const stylists = useMemo(() => (employees || []).filter(e => e.role === 'STYLIST'), [employees]);
+
+  const totalPaid = useMemo(() => (payments || []).reduce((s, p) => s + p.netPaid, 0), [payments]);
+  const totalEarned = useMemo(() => (payments || []).reduce((s, p) => s + p.earnedAmount, 0), [payments]);
+  const totalDeducted = useMemo(() => (payments || []).reduce((s, p) => s + p.advanceDeducted, 0), [payments]);
+  const uniqueEmployees = useMemo(() => {
+    const ids = new Set((payments || []).map(p => p.employeeId));
+    return ids.size;
+  }, [payments]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await fetch(`/api/salon/payments/${id}`, { method: 'DELETE' });
+      toast.success('Payment deleted');
+      refetch();
+    } catch (e) {
+      toast.error('Delete failed', { description: (e as Error).message });
+    } finally {
+      setDeleteDialog(null);
+    }
+  }, [refetch]);
+
+  const groupedByDate = useMemo(() => {
+    const groups: Record<string, Payment[]> = {};
+    (payments || []).forEach(p => {
+      if (!groups[p.date]) groups[p.date] = [];
+      groups[p.date].push(p);
+    });
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [payments]);
+
+  const purposeLabel = (p: string) => {
+    switch (p) {
+      case 'DAILY_EARNINGS': return '💰 Daily';
+      case 'WEEKLY_SALARY': return '📅 Weekly';
+      case 'MONTHLY_SALARY': return '📆 Monthly';
+      case 'BONUS': return '🎁 Bonus';
+      case 'SETTLEMENT': return '📋 Settlement';
+      default: return p;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Total Paid Out</p>
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(totalPaid)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Total Earned</p>
+          <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{formatCurrency(totalEarned)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Advance Deducted</p>
+          <p className="text-lg font-bold text-red-700 dark:text-red-400">{formatCurrency(totalDeducted)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Employees Paid</p>
+          <p className="text-lg font-bold text-violet-700 dark:text-violet-400">{uniqueEmployees}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-emerald-500" />
+              <CardTitle className="text-base">Payment History</CardTitle>
+              <Badge variant="secondary" className="text-[10px]">{(payments || []).length} records</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                className="w-[160px] h-8 text-xs" />
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="All Employees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {stylists.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!payments || payments.length === 0 ? (
+            <EmptyState icon={Wallet} title="No payments recorded"
+              description={selectedMonth === currentMonth ? 'Mark employees as paid from the Daily Payment section below' : `No payments found for ${selectedMonth}`} />
+          ) : (
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+              {groupedByDate.map(([date, datePayments]) => {
+                const dayTotal = datePayments.reduce((s, p) => s + p.netPaid, 0);
+                const isToday = date === today;
+                return (
+                  <div key={date} className="space-y-2">
+                    <div className="flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-sm py-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">{isToday ? 'Today' : format(new Date(date + 'T00:00:00'), 'EEE, MMM d')}</span>
+                        {isToday && <span className="text-[10px] text-muted-foreground">{date}</span>}
+                      </div>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(dayTotal)}</span>
+                    </div>
+                    {datePayments.map(p => (
+                      <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:shadow-sm transition-shadow">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30">{getInitials(p.employee.name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{p.employee.name}</p>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">{purposeLabel(p.purpose)}</Badge>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">
+                              {p.paymentMethod === 'CASH' ? '💵' : p.paymentMethod === 'ONLINE' ? '💳' : '✂️'} {p.paymentMethod}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>Earned: <span className="text-blue-600 dark:text-blue-400">{formatCurrency(p.earnedAmount)}</span></span>
+                            {p.advanceDeducted > 0 && <span>Advance: <span className="text-red-600 dark:text-red-400">-{formatCurrency(p.advanceDeducted)}</span></span>}
+                            {p.notes && <span className="truncate max-w-[120px]">· {p.notes}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(p.netPaid)}</p>
+                          <p className="text-[9px] text-muted-foreground">{new Date(p.paidAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {p.receiptNumber && <Badge className="text-[8px] px-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400" variant="outline">RCT-{p.receiptNumber}</Badge>}
+                          {authUser && (
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                              onClick={() => setDeleteDialog(p.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Delete Payment?</DialogTitle>
+            <DialogDescription className="text-sm">This will permanently remove this payment record. This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant="destructive" size="sm" onClick={() => handleDelete(deleteDialog!)}>
+              <Trash2 className="w-3 h-3 mr-1" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

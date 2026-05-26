@@ -24,7 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format, isToday, subDays, formatDistanceToNow } from 'date-fns';
-import type { Appointment, AuthUser, Transaction, Service, Product, Employee, Advance, Leave, AttendanceRecord } from '@/lib/salon-types';
+import type { Appointment, AuthUser, Transaction, Service, Product, Employee, Advance, Leave, AttendanceRecord, Payment } from '@/lib/salon-types';
 import { useFetch, useAnimatedNumber } from '@/lib/salon-hooks';
 import { formatTime, formatCurrency, getInitials, calculateCommission, apiPost,
   formatCurrency as _fc,
@@ -531,6 +531,9 @@ export function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps)
 
       {/* Monthly Target */}
       <EarningsGoalTracker currentEarnings={monthEarnings} employeeRole={currentEmp?.role || 'STYLIST'} />
+
+      {/* My Payment History */}
+      <EmployeePaymentHistory employeeId={selectedEmployee} />
 
       {/* How Commission Works + Daily Earnings Sparkline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1173,6 +1176,108 @@ function MyAttendanceHistory({ employeeId, branchId }: { employeeId: string; bra
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─── MY PAYMENT HISTORY ──────────────────────────────────────
+function EmployeePaymentHistory({ employeeId }: { employeeId: string }) {
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
+  const { data: payments } = useFetch<Payment[]>(
+    employeeId ? `/api/salon/payments?employeeId=${employeeId}&month=${selectedMonth}` : null
+  );
+
+  const totalNetPaid = useMemo(() => (payments || []).reduce((s, p) => s + p.netPaid, 0), [payments]);
+  const totalEarned = useMemo(() => (payments || []).reduce((s, p) => s + p.earnedAmount, 0), [payments]);
+  const totalDeducted = useMemo(() => (payments || []).reduce((s, p) => s + p.advanceDeducted, 0), [payments]);
+  const paymentCount = (payments || []).length;
+
+  const purposeLabel = (p: string) => {
+    switch (p) {
+      case 'DAILY_EARNINGS': return '💰 Daily Earnings';
+      case 'WEEKLY_SALARY': return '📅 Weekly Salary';
+      case 'MONTHLY_SALARY': return '📆 Monthly Salary';
+      case 'BONUS': return '🎁 Bonus';
+      case 'SETTLEMENT': return '📋 Settlement';
+      default: return p;
+    }
+  };
+
+  return (
+    <GlassCard>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium flex items-center gap-1.5">
+            <Wallet className="w-4 h-4 text-emerald-500" />
+            My Payment History
+          </h3>
+          <div className="flex items-center gap-2">
+            <Input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+              className="w-[140px] h-7 text-[11px]" />
+          </div>
+        </div>
+
+        {/* Summary Row */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
+            <p className="text-[9px] text-muted-foreground uppercase">Received</p>
+            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(totalNetPaid)}</p>
+          </div>
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-2 text-center">
+            <p className="text-[9px] text-muted-foreground uppercase">Gross Earned</p>
+            <p className="text-sm font-bold text-blue-700 dark:text-blue-400">{formatCurrency(totalEarned)}</p>
+          </div>
+          <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-2 text-center">
+            <p className="text-[9px] text-muted-foreground uppercase">Deducted</p>
+            <p className="text-sm font-bold text-red-700 dark:text-red-400">{formatCurrency(totalDeducted)}</p>
+          </div>
+        </div>
+
+        {/* Payment List */}
+        {!payments || payments.length === 0 ? (
+          <div className="text-center py-4">
+            <Wallet className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
+            <p className="text-xs text-muted-foreground">No payments received{selectedMonth === currentMonth ? ' today' : ` in ${selectedMonth}`}</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+            {payments.map(p => (
+              <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg border hover:bg-muted/30 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                  <Banknote className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-medium">{purposeLabel(p.purpose)}</p>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0">
+                      {p.paymentMethod === 'CASH' ? '💵' : '💳'} {p.paymentMethod}
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {isToday(p.date) ? 'Today' : format(new Date(p.date + 'T00:00:00'), 'MMM d')} · {new Date(p.paidAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    {p.notes && ` · ${p.notes}`}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(p.netPaid)}</p>
+                  {p.advanceDeducted > 0 && (
+                    <p className="text-[9px] text-red-500">- {formatCurrency(p.advanceDeducted)} advance</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {paymentCount > 0 && (
+          <div className="mt-2 pt-2 border-t flex justify-between items-center text-[10px] text-muted-foreground">
+            <span>{paymentCount} payment{paymentCount > 1 ? 's' : ''}</span>
+            <span>Total: <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalNetPaid)}</span></span>
+          </div>
+        )}
+      </CardContent>
+    </GlassCard>
   );
 }
 

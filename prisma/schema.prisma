@@ -176,10 +176,14 @@ model Payment {
   employeeId      String
   branchId        String
   date            String
-  earnedAmount    Float
+  amount          Float
+  earnedAmount    Float    @default(0)
   advanceDeducted Float    @default(0)
   netPaid         Float
   paymentMethod   String   @default("CASH")
+  purpose         String   @default("DAILY_EARNINGS")
+  notes           String?
+  receiptNumber   String?
   paidBy          String?
   paidAt          DateTime @default(now())
   createdAt       DateTime @default(now())

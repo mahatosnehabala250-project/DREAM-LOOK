@@ -206,6 +206,7 @@ export function OwnerView() {
   const ownerSections = [
     { id: 'owner-overview', label: 'Overview' },
     { id: 'owner-stores', label: 'Stores' },
+    { id: 'owner-payments', label: 'Payments' },
     { id: 'owner-customers', label: 'Customers' },
     { id: 'owner-expenses', label: 'Expenses' },
     { id: 'owner-services', label: 'Services' },
@@ -389,6 +390,11 @@ export function OwnerView() {
           performance={(monthAnalytics || yearAnalytics)?.employeePerformance || []}
         />
       </motion.div>
+
+      {/* All Store Payment Records */}
+      <div id="owner-payments" className="scroll-mt-36">
+      <OwnerPaymentRecords />
+      </div>
 
       {/* Customer Analytics */}
       <div id="owner-customers" className="scroll-mt-36">
@@ -1347,5 +1353,182 @@ export function RecordServiceDialog({ open, onClose, appointment, onSuccess }: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OWNER PAYMENT RECORDS — All Store Payment History
+// ═══════════════════════════════════════════════════════════════════
+function OwnerPaymentRecords() {
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedStore, setSelectedStore] = useState<string>('all');
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
+
+  const { data: stores } = useFetch<Store[]>('/api/salon/stores');
+  const { data: employees } = useFetch<Employee[]>('/api/salon/employees');
+  const { data: payments } = useFetch<Payment[]>(
+    `/api/salon/payments?month=${selectedMonth}${selectedStore !== 'all' ? `&branchId=${selectedStore}` : ''}${selectedEmployee !== 'all' ? `&employeeId=${selectedEmployee}` : ''}`
+  );
+
+  const totalPaidOut = useMemo(() => (payments || []).reduce((s, p) => s + p.netPaid, 0), [payments]);
+  const totalEarned = useMemo(() => (payments || []).reduce((s, p) => s + p.earnedAmount, 0), [payments]);
+  const totalDeducted = useMemo(() => (payments || []).reduce((s, p) => s + p.advanceDeducted, 0), [payments]);
+  const cashPayments = useMemo(() => (payments || []).filter(p => p.paymentMethod === 'CASH').reduce((s, p) => s + p.netPaid, 0), [payments]);
+  const onlinePayments = useMemo(() => (payments || []).filter(p => p.paymentMethod === 'ONLINE').reduce((s, p) => s + p.netPaid, 0), [payments]);
+
+  // Group by store
+  const byStore = useMemo(() => {
+    const map: Record<string, { storeName: string; total: number; count: number }> = {};
+    (payments || []).forEach(p => {
+      if (!map[p.employee.id]) {
+        map[p.employee.id] = { storeName: p.store?.name || 'Unknown', total: 0, count: 0 };
+      }
+      map[p.employee.id].total += p.netPaid;
+      map[p.employee.id].count += 1;
+    });
+    return map;
+  }, [payments]);
+
+  const storeGroups = useMemo(() => {
+    const map: Record<string, Payment[]> = {};
+    (payments || []).forEach(p => {
+      const key = p.store?.name || 'Unknown';
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
+    });
+    return Object.entries(map).sort(([a, aP], [b, bP]) => bP.reduce((s, p) => s + p.netPaid, 0) - aP.reduce((s, p) => s + p.netPaid, 0));
+  }, [payments]);
+
+  const purposeLabel = (p: string) => {
+    switch (p) {
+      case 'DAILY_EARNINGS': return '💰 Daily';
+      case 'WEEKLY_SALARY': return '📅 Weekly';
+      case 'MONTHLY_SALARY': return '📆 Monthly';
+      case 'BONUS': return '🎁 Bonus';
+      case 'SETTLEMENT': return '📋 Settlement';
+      default: return p;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Total Paid Out</p>
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(totalPaidOut)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Total Earned</p>
+          <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{formatCurrency(totalEarned)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">Advance Deducted</p>
+          <p className="text-lg font-bold text-red-700 dark:text-red-400">{formatCurrency(totalDeducted)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">💵 Cash</p>
+          <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{formatCurrency(cashPayments)}</p>
+        </div>
+        <div className="rounded-xl border bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/10 p-3">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase">💳 Online</p>
+          <p className="text-lg font-bold text-violet-700 dark:text-violet-400">{formatCurrency(onlinePayments)}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-emerald-500" />
+              <CardTitle className="text-base">All Store Payments</CardTitle>
+              <Badge variant="secondary" className="text-[10px]">{(payments || []).length} records</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                className="w-[150px] h-8 text-xs" />
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="All Stores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stores</SelectItem>
+                  {(stores || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger className="w-[170px] h-8 text-xs">
+                  <SelectValue placeholder="All Employees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {(employees || []).filter(e => e.role === 'STYLIST').map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!payments || payments.length === 0 ? (
+            <EmptyState icon={Wallet} title="No payments recorded"
+              description={`No payment records found for ${selectedMonth === currentMonth ? 'this month' : selectedMonth}`} />
+          ) : (
+            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-1">
+              {storeGroups.map(([storeName, storePayments]) => {
+                const storeTotal = storePayments.reduce((s, p) => s + p.netPaid, 0);
+                const storeEarned = storePayments.reduce((s, p) => s + p.earnedAmount, 0);
+                return (
+                  <div key={storeName}>
+                    <div className="flex items-center justify-between mb-2 pb-1 border-b">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">{storeName}</span>
+                        <Badge variant="outline" className="text-[9px]">{storePayments.length} payments</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">Earned: <span className="text-blue-600 dark:text-blue-400 font-semibold">{formatCurrency(storeEarned)}</span></span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">Paid: {formatCurrency(storeTotal)}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      {storePayments.map(p => (
+                        <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg border bg-card/50 hover:bg-card transition-colors">
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarFallback className="text-[9px] font-medium bg-emerald-100 dark:bg-emerald-900/30">{getInitials(p.employee.name)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-medium truncate">{p.employee.name}</p>
+                              <Badge variant="outline" className="text-[8px] px-1 py-0">{purposeLabel(p.purpose)}</Badge>
+                              <Badge variant="outline" className="text-[8px] px-1 py-0">
+                                {p.paymentMethod === 'CASH' ? '💵' : '💳'} {p.paymentMethod}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              {isToday(p.date) ? 'Today' : format(new Date(p.date + 'T00:00:00'), 'MMM d')} · {new Date(p.paidAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              {p.notes && ` · ${p.notes}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] shrink-0">
+                            {p.advanceDeducted > 0 && (
+                              <span className="text-red-500">-{formatCurrency(p.advanceDeducted)}</span>
+                            )}
+                            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 min-w-[60px] text-right">{formatCurrency(p.netPaid)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

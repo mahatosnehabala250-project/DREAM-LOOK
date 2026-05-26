@@ -95,8 +95,9 @@ export interface Advance {
 }
 export interface Payment {
   id: string; employeeId: string; branchId: string; date: string;
-  earnedAmount: number; advanceDeducted: number; netPaid: number;
-  paymentMethod: string; paidBy: string | null; paidAt: string;
+  amount: number; earnedAmount: number; advanceDeducted: number; netPaid: number;
+  paymentMethod: string; purpose: string; notes: string | null;
+  receiptNumber: string | null; paidBy: string | null; paidAt: string;
   employee: { id: string; name: string; role: string; avatar: string | null };
   store: { id: string; name: string };
 }
