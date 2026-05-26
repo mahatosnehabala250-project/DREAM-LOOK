@@ -2992,3 +2992,127 @@ Stage Summary:
 - Dashboard footer shows 3 live quick stats (Today's Bookings, Open Now, Staff Online)
 - Landing page login cards have premium shimmer/shine effect on hover via CSS `card-shine` class
 - Landing page cards have floating decorative dots with framer-motion animations
+
+---
+
+## Hydration Fix + QA + Feature Enhancement Pass - 2026-05-26
+
+### Task: Fix hydration mismatch, QA test, dedup database, add new features and styling
+
+### Bugs Fixed (4):
+
+#### 1. Hydration Mismatch Error (CRITICAL)
+- **Root Cause**: `useState` initializers in `page.tsx` read `localStorage` on the client but returned defaults on the server → different initial HTML
+- **Fix**: Removed `localStorage` from `useState` initializers; moved to `useEffect` with proper mounted flag (`useState(false)` + `useEffect` → `setMounted(true)`)
+- **File**: `src/app/page.tsx` lines 45-98
+
+#### 2. Duplicate Database Records (MEDIUM)
+- **Root Cause**: Seed script was run twice, creating duplicate entries for all tables
+- **Before**: 24 services, 6 stores, 24 products (all duplicated)
+- **After**: 12 services, 3 stores, 12 products (all unique)
+- **Fix**: Created `scripts/dedup.ts` to programmatically deduplicate all tables, keeping the oldest entries
+- **Files**: `scripts/dedup.ts` (new), database cleaned
+
+#### 3. StoreComparison Variable Name Mismatch (LOW)
+- **Root Cause**: Variable names `koramangala`, `mgRoad`, `whitefield` didn't match actual store order in database
+- **Fix**: Renamed to `store0Analytics`, `store1Analytics`, `store2Analytics` for correctness
+- **File**: `src/components/salon/manager-view.tsx` lines 2803-2816
+
+#### 4. Commission Preview Duplicate Display (LOW)
+- **Root Cause**: Duplicate services in database caused each service to appear twice
+- **Fix**: Database deduplication resolved this automatically
+
+### QA Results (agent-browser):
+| Test | Result |
+|------|--------|
+| Landing page renders | ✅ Pass |
+| Employee login (9900000003) | ✅ Pass |
+| Manager login (9900000002) | ✅ Pass |
+| Owner login (9900000001) | ✅ Pass |
+| Hydration mismatch | ✅ FIXED — zero errors |
+| Console errors | ✅ Zero errors |
+| API endpoints | ✅ All returning 200 |
+
+### New Features Added (5):
+
+#### 1. Confetti Celebration on Booking (CustomerView)
+- `useConfetti()` hook in `src/lib/salon-hooks.tsx` — generates 60 particles in brand colors (rose, pink, fuchsia, gold)
+- Fires automatically when booking completes successfully
+- 4.5-second duration with CSS keyframe animations
+- No external packages needed (pure framer-motion)
+
+#### 2. Staggered List Entry Animations (All Views)
+- `StaggerContainer` and `StaggerItem` components in `src/components/salon/common.tsx`
+- Uses framer-motion `staggerChildren: 0.04` for waterfall reveal
+- Applied to 5 list areas:
+  - Customer: store cards, service cards
+  - Employee: today's schedule
+  - Manager: customer list rows
+  - Owner: staff performance rows
+
+#### 3. Store Busy Indicator (CustomerView)
+- `StoreStatusBadge` component shows live store status
+- Fetches today's appointment count per store
+- Shows: "Open — Quiet" (green, 0-2), "Open — Moderate" (amber, 3-5), "Open — Busy" (rose, 6+), "Closed" (gray)
+- Highlights least busy store with "Best availability now" Sparkles badge
+
+#### 4. Enhanced Footer with Quick Stats (Dashboard)
+- `FooterQuickStats` component in footer
+- Shows 3 live stats: Today's Bookings, Open Stores (X/3), Staff Online
+- Fetches from existing APIs in real-time
+- Subtle muted styling that blends with footer gradient
+
+#### 5. Landing Page Card Polish (LandingPage)
+- Shimmer/shine animation on hover via CSS `card-shine` class
+- 3 floating decorative dots per card using framer-motion
+- More detailed role card descriptions
+
+### Files Modified:
+| File | Change |
+|------|--------|
+| `src/app/page.tsx` | Hydration fix (localStorage → useEffect), footer quick stats |
+| `src/lib/salon-hooks.ts` → `src/lib/salon-hooks.tsx` | Added `useConfetti` hook |
+| `src/components/salon/common.tsx` | Added `StaggerContainer`, `StaggerItem` components |
+| `src/components/salon/customer-view.tsx` | Confetti on booking, store busy indicator, stagger animations |
+| `src/components/salon/employee-view.tsx` | Stagger animations on schedule |
+| `src/components/salon/manager-view.tsx` | Fixed StoreComparison vars, stagger on customer list |
+| `src/components/salon/owner-view.tsx` | Stagger animations on staff table |
+| `src/components/salon/auth.tsx` | Landing page card shimmer + floating dots |
+| `src/app/globals.css` | Added `card-shine` CSS animation |
+| `scripts/dedup.ts` | New deduplication script |
+
+### Lint: Zero errors | Deployed to GitHub (Vercel auto-deploy)
+
+---
+
+## Current Project Status Assessment (2026-05-26)
+
+### What's Working (Complete)
+- ✅ **Hydration**: Fixed SSR/client mismatch — no more hydration errors
+- ✅ **Database**: Clean data — 3 stores, 11 employees, 12 services, 12 products, 11 customers
+- ✅ **Auth**: Phone-based login for 3 roles (Employee, Manager, Owner) with localStorage persistence
+- ✅ **API Layer**: 20+ endpoints all functional
+- ✅ **Frontend**: Modular component architecture across 6 files
+- ✅ **Animations**: Confetti, stagger lists, framer-motion throughout
+- ✅ **Live Stats**: Store busy indicators, footer quick stats
+- ✅ **Mobile**: Bottom nav, responsive design, safe areas
+- ✅ **Dark Mode**: next-themes with toggle
+- ✅ **QA**: All 3 login flows verified, zero console errors
+
+### Known Issues / Risks
+1. **Negative employee earnings**: Product deduction costs can exceed service price in demo data — business logic concern, not a bug
+2. **Negative inventory**: Some products have deeply negative quantities from test transactions
+3. **Cross-origin iframe warning**: Preview-chat iframe blocked by CORS in dev mode (dev-only, not production)
+
+### Priority Recommendations for Next Phase
+
+| Priority | Task | Effort |
+|----------|------|--------|
+| 🔴 High | Add NextAuth.js authentication with role-based access control | Medium |
+| 🟡 Medium | Customer Loyalty Points & Tiers system | Medium |
+| 🟡 Medium | Booking Heatmap Calendar (demand visualization) | Medium |
+| 🟡 Medium | Mobile Swipe Actions on schedule items | Medium |
+| 🟡 Medium | Service Upsell Suggestions ("Complete Your Look") | Medium |
+| 🟢 Low | WebSocket real-time updates | High |
+| 🟢 Low | Print-friendly settlement reports | Low |
+| 🟢 Low | Multi-language support (Hindi/Tamil) | Medium |
