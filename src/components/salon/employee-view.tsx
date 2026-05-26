@@ -1296,13 +1296,13 @@ function QuickServiceEntryDialog({ open, onClose, employeeId, storeId, onService
   const [submitting, setSubmitting] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
 
-  const servicePrice = selectedService?.price || 0;
-  const splitRemaining = servicePrice - splitCash - splitOnline;
-  const splitValid = paymentMethod !== 'SPLIT' || (splitCash >= 0 && splitOnline >= 0 && Math.abs(splitRemaining) < 0.01);
-
   const activeServices = useMemo(() => (services || []).filter(s => s.isActive), [services]);
   const filteredServices = useMemo(() => serviceFilter === 'ALL' ? activeServices : activeServices.filter(s => s.category === serviceFilter), [activeServices, serviceFilter]);
   const selectedService = activeServices.find(s => s.id === selectedServiceId);
+
+  const servicePrice = selectedService?.price || 0;
+  const splitRemaining = servicePrice - splitCash - splitOnline;
+  const splitValid = paymentMethod !== 'SPLIT' || (splitCash >= 0 && splitOnline >= 0 && Math.abs(splitRemaining) < 0.01);
 
   // Commission calculation
   const commission = useMemo(() => {

@@ -14,7 +14,7 @@ import {
   CalendarX, ClipboardCheck, FileWarning, ShieldCheck, UserMinus, UserPlus,
   Wrench, Mail, Medal, Settings, UserCircle, MessageSquare, ExternalLink,
   Info, Trash2, Pencil, Save, Sparkles, Flame, Building2, IndianRupee,
-  FileText, LogIn, LogOut, Play, Timer, CircleDot,
+  FileText, LogIn, LogOut, Play, Timer, CircleDot, Footprints,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
