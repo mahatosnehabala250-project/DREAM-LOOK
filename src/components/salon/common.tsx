@@ -9,11 +9,14 @@ import {
   ChevronDown, User, Search, Settings, Sun, Moon,
   LogOut, UserCircle, LifeBuoy, MessageSquare, HelpCircle,
   Phone, MapPin, Banknote, CreditCard, Receipt,
+  ExternalLink, CalendarDays, X, Scissors, Store,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -67,57 +70,359 @@ export function MobileBottomNav({ activeRole, setActiveRole }: { activeRole: Rol
   );
 }
 
-// ─── NOTIFICATION BELL ────────────────────────────────────────
+// ─── NOTIFICATION BELL (Enhanced) ─────────────────────────────
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { data: pendingAppts } = useFetch<Appointment[]>('/api/salon/appointments?status=PENDING');
-  const count = (pendingAppts || []).length;
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [tab, setTab] = useState('all');
+  const { data: allAppts } = useFetch<Appointment[]>('/api/salon/appointments');
+
+  const appointments = allAppts || [];
+  const pendingCount = appointments.filter(a => a.status === 'PENDING').length;
+
+  const filteredAppts = appointments.filter(a => {
+    if (tab === 'all') return true;
+    if (tab === 'pending') return a.status === 'PENDING';
+    if (tab === 'confirmed') return a.status === 'CONFIRMED';
+    if (tab === 'completed') return a.status === 'COMPLETED';
+    return true;
+  }).slice(0, 8);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label="Notifications">
-          <span className={`relative ${count > 0 ? 'animate-breathe' : ''}`}>
-            <Bell className={`w-4 h-4 ${count > 0 ? 'text-rose-500 dark:text-rose-400' : ''}`} />
-            {count > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
-                {count > 9 ? '9+' : count}
-              </span>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label="Notifications">
+            <span className={`relative ${pendingCount > 0 ? 'animate-breathe' : ''}`}>
+              <Bell className={`w-4 h-4 ${pendingCount > 0 ? 'text-rose-500 dark:text-rose-400' : ''}`} />
+              {pendingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
+                  {pendingCount > 9 ? '9+' : pendingCount}
+                </span>
+              )}
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80 p-0">
+          <div className="p-3 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold">Notifications</h4>
+                <p className="text-xs text-muted-foreground">{pendingCount} pending appointments</p>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">{appointments.length} total</Badge>
+            </div>
+          </div>
+          {/* Tab Filters */}
+          <Tabs value={tab} onValueChange={setTab} className="w-full">
+            <div className="px-3 pt-2">
+              <TabsList className="w-full h-8">
+                <TabsTrigger value="all" className="text-xs px-2 flex-1">All</TabsTrigger>
+                <TabsTrigger value="pending" className="text-xs px-2 flex-1">Pending</TabsTrigger>
+                <TabsTrigger value="confirmed" className="text-xs px-2 flex-1">Confirmed</TabsTrigger>
+                <TabsTrigger value="completed" className="text-xs px-2 flex-1">Done</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value={tab} className="mt-0">
+              <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                {filteredAppts.length === 0 ? (
+                  <div className="flex flex-col items-center py-6 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                    <p className="text-sm text-muted-foreground">No appointments here</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {filteredAppts.map((apt) => (
+                      <NotificationItem key={apt.id} apt={apt} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+          {/* View All Link */}
+          <div className="border-t p-2">
+            <button
+              onClick={() => { setOpen(false); setDialogOpen(true); }}
+              className="flex items-center justify-center gap-1.5 w-full text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
+            >
+              <ExternalLink className="w-3 h-3" />
+              View All Notifications
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <NotificationCenterDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </>
+  );
+}
+
+function NotificationItem({ apt }: { apt: Appointment }) {
+  const categoryColors: Record<string, string> = {
+    HAIRCUT: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+    COLOR: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300',
+    TREATMENT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    SPA: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+    BRIDAL: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  };
+  const catClass = categoryColors[apt.service?.category || ''] || 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300';
+
+  return (
+    <div className="px-3 py-2.5 hover:bg-muted/50 transition-colors">
+      <div className="flex items-start gap-2.5">
+        <Avatar className="h-8 w-8 mt-0.5 shrink-0">
+          <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300 text-[10px] font-semibold">
+            {getInitials(apt.customer?.name || '??')}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium truncate">{apt.customer?.name}</p>
+            <StatusBadge status={apt.status} />
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-xs text-muted-foreground truncate">{apt.service?.name}</span>
+            <Badge className={`text-[9px] px-1.5 py-0 h-4 ${catClass}`} variant="secondary">
+              {apt.service?.category || ''}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+            <Clock className="w-3 h-3" />
+            <span>{formatTime(apt.time)}</span>
+            {apt.store && (
+              <>
+                <span className="text-border">•</span>
+                <Store className="w-3 h-3" />
+                <span className="truncate">{apt.store.name}</span>
+              </>
             )}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="p-3 border-b">
-          <h4 className="text-sm font-semibold">Pending Appointments</h4>
-          <p className="text-xs text-muted-foreground">{count} awaiting confirmation</p>
+          </div>
         </div>
-        <div className="max-h-64 overflow-y-auto custom-scrollbar">
-          {count === 0 ? (
-            <div className="flex flex-col items-center py-6 text-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
-              <p className="text-sm text-muted-foreground">All caught up!</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── NOTIFICATION CENTER DIALOG ────────────────────────────────
+export function NotificationCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const { data: allAppts, loading } = useFetch<Appointment[]>('/api/salon/appointments');
+
+  const appointments = (allAppts || []).slice(0, 20);
+
+  const filtered = appointments.filter(a => {
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return a.customer?.name.toLowerCase().includes(q) || a.service?.name.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  // Group by date
+  const grouped = filtered.reduce<Record<string, Appointment[]>>((acc, apt) => {
+    const key = apt.date;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(apt);
+    return acc;
+  }, {});
+
+  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-rose-500" />
+            Notification Center
+          </DialogTitle>
+          <DialogDescription>Recent appointments and their statuses</DialogDescription>
+        </DialogHeader>
+
+        {/* Search + Filter */}
+        <div className="shrink-0 space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by customer or service..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 h-9 bg-muted/50"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer">
+                <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            {['all', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border cursor-pointer ${
+                  statusFilter === s
+                    ? 'bg-rose-500 text-white border-rose-500'
+                    : 'bg-muted/50 text-muted-foreground border-border hover:border-rose-300'
+                }`}
+              >
+                {s === 'all' ? 'All' : s.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* List grouped by date */}
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          {loading ? (
+            <div className="space-y-3 py-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-muted/80 flex items-center justify-center mb-3">
+                <Bell className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No appointments found</p>
+              <p className="text-xs text-muted-foreground">Try adjusting your search or filter</p>
             </div>
           ) : (
-            <div className="divide-y">
-              {(pendingAppts || []).map((apt) => (
-                <div key={apt.id} className="px-3 py-2.5 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium truncate">{apt.customer?.name}</p>
-                    <StatusBadge status={apt.status} />
+            <div className="space-y-4 py-2">
+              {sortedDates.map(date => (
+                <div key={date}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {format(new Date(date + 'T00:00:00'), 'EEEE, MMM d, yyyy')}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">({grouped[date].length})</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                    <span>{apt.service?.name}</span>
-                    <span>•</span>
-                    <span>{formatTime(apt.time)}</span>
+                  <div className="space-y-1.5">
+                    {grouped[date].map(apt => (
+                      <button
+                        key={apt.id}
+                        onClick={() => setSelectedApt(apt)}
+                        className="flex items-start gap-2.5 w-full p-3 rounded-xl border hover:bg-muted/30 hover:shadow-sm transition-all text-left cursor-pointer"
+                      >
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 dark:from-rose-950/40 dark:to-pink-950/40 text-rose-700 dark:text-rose-300 text-[10px] font-semibold">
+                            {getInitials(apt.customer?.name || '??')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium truncate">{apt.customer?.name}</p>
+                            <StatusBadge status={apt.status} />
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Scissors className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground truncate">{apt.service?.name}</span>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                              {apt.service?.category}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatTime(apt.time)}</span>
+                            {apt.store && (
+                              <>
+                                <span className="text-border">•</span>
+                                <Store className="w-3 h-3" />
+                                <span className="truncate">{apt.store.name}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{apt.store?.name}</p>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      </PopoverContent>
-    </Popover>
+        </ScrollArea>
+      </DialogContent>
+
+      {/* Appointment Detail Dialog */}
+      <Dialog open={!!selectedApt} onOpenChange={() => setSelectedApt(null)}>
+        <DialogContent className="sm:max-w-md">
+          {selectedApt && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 ring-2 ring-rose-200 dark:ring-rose-800">
+                    <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-600 text-white font-bold text-sm">
+                      {getInitials(selectedApt.customer?.name || '??')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p>{selectedApt.customer?.name}</p>
+                    <p className="text-sm font-normal text-muted-foreground">{selectedApt.customer?.phone}</p>
+                  </div>
+                </DialogTitle>
+                <DialogDescription>Appointment details</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-muted/50 space-y-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Status</p>
+                    <StatusBadge status={selectedApt.status} />
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/50 space-y-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Price</p>
+                    <p className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selectedApt.service?.price || 0)}</p>
+                  </div>
+                </div>
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Scissors className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">{selectedApt.service?.name}</span>
+                    <Badge variant="outline" className="text-[10px]">{selectedApt.service?.category}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedApt.date}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span>{formatTime(selectedApt.time)}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedApt.employee?.name} ({selectedApt.employee?.role})</span>
+                  </div>
+                  {selectedApt.store && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Store className="w-4 h-4 text-muted-foreground" />
+                      <span>{selectedApt.store.name}, {selectedApt.store.city}</span>
+                    </div>
+                  )}
+                </div>
+                {selectedApt.notes && (
+                  <div className="p-3 rounded-xl bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
+                    <p className="text-sm">{selectedApt.notes}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Dialog>
   );
 }
 

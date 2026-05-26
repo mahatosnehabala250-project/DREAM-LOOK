@@ -909,6 +909,92 @@ export function OwnerCustomerAnalyticsSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// TOP PERFORMERS TODAY (Mini Cards)
+// ═══════════════════════════════════════════════════════════════════
+function TopPerformersToday({ transactions }: { transactions: Transaction[] }) {
+  const topPerfomers = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
+    const grouped = transactions.reduce<Record<string, { name: string; revenue: number; count: number }>>((acc, tx) => {
+      const eid = tx.employeeId;
+      if (!acc[eid]) acc[eid] = { name: tx.employee?.name || 'Unknown', revenue: 0, count: 0 };
+      acc[eid].revenue += tx.servicePrice;
+      acc[eid].count += 1;
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 3)
+      .map(([id, data]) => ({ id, ...data }));
+  }, [transactions]);
+
+  const rankConfig = [
+    { icon: Medal, label: '#1', gradient: 'from-amber-400 via-yellow-400 to-amber-500', ring: 'ring-amber-300 dark:ring-amber-700', bg: 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300' },
+    { icon: Medal, label: '#2', gradient: 'from-gray-300 via-slate-300 to-gray-400', ring: 'ring-gray-300 dark:ring-gray-600', bg: 'bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/30 dark:to-slate-950/30 border-gray-200 dark:border-gray-700', text: 'text-gray-600 dark:text-gray-300' },
+    { icon: Medal, label: '#3', gradient: 'from-orange-400 via-amber-500 to-orange-600', ring: 'ring-orange-300 dark:ring-orange-700', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800', text: 'text-orange-700 dark:text-orange-300' },
+  ];
+
+  if (topPerfomers.length === 0) return null;
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-amber-500" />
+          <CardTitle className="text-base">Top Performers Today</CardTitle>
+        </div>
+        <CardDescription className="text-xs">Based on today&apos;s completed service revenue</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {topPerfomers.map((perf, idx) => {
+            const config = rankConfig[idx] || rankConfig[2];
+            const RankIcon = config.icon;
+            return (
+              <motion.div
+                key={perf.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1, duration: 0.3 }}
+              >
+                <div className={`relative rounded-xl border p-4 ${config.bg} overflow-hidden`}>
+                  {/* Decorative gradient bar at top */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.gradient}`} />
+
+                  <div className="flex items-center gap-3">
+                    {/* Rank badge + Avatar */}
+                    <div className="relative">
+                      <Avatar className={`h-10 w-10 ring-2 ${config.ring}`}>
+                        <AvatarFallback className={`bg-gradient-to-br ${config.gradient} text-white font-bold text-sm`}>
+                          {getInitials(perf.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-sm`}>
+                        <RankIcon className="w-3 h-3 text-white" />
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{perf.name}</p>
+                      <p className={`text-base font-black ${config.text}`}>
+                        {formatCurrency(perf.revenue)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {perf.count} service{perf.count !== 1 ? 's' : ''} completed
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MANAGER VIEW - MANAGE STORE
 // ═══════════════════════════════════════════════════════════════════
 export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
@@ -935,6 +1021,10 @@ export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
   // Real revenue from analytics
   const { data: todayAnalytics, refetch: refetchAnalytics } = useFetch<AnalyticsData>(
     activeStoreId ? `/api/salon/analytics?storeId=${activeStoreId}&from=${today}&to=${today}` : null
+  );
+  // Today's transactions for top performers
+  const { data: todayTransactions } = useFetch<Transaction[]>(
+    activeStoreId ? `/api/salon/transactions?storeId=${activeStoreId}&from=${today}&to=${today}` : null
   );
 
   const filteredInventory = useMemo(() => {
@@ -1204,6 +1294,9 @@ export function ManagerView({ authUser }: { authUser?: AuthUser | null }) {
         </CardContent>
       </Card>
       </div>{/* end mgr-appointments */}
+
+      {/* Top Performers Today */}
+      <TopPerformersToday transactions={todayTransactions || []} />
 
       {/* Inventory */}
       <div id="mgr-inventory" className="scroll-mt-36">

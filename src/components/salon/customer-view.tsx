@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   Scissors, MapPin, Phone, Clock, ChevronRight, ChevronLeft, ChevronDown,
   User, Calendar, Check, CheckCircle2, Search, Sparkles, Eye, Heart, Star,
-  RefreshCw, Users, Building2, Shield, X, Timer,
+  RefreshCw, Users, Building2, Shield, X, Timer, Award, Gem,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { format, isBefore, isToday, startOfDay } from 'date-fns';
-import type { Store, Service, Employee, Appointment } from '@/lib/salon-types';
+import type { Store, Service, Employee, Appointment, Transaction } from '@/lib/salon-types';
 import { useFetch, useConfetti } from '@/lib/salon-hooks';
 import { formatTime, formatCurrency, getInitials, apiPost, apiPatch,
   TIME_SLOTS, SERVICE_CATEGORIES, STORE_GRADIENTS,
@@ -710,6 +710,34 @@ function CustomerAppointmentTracker() {
     return phoneAppts[0]?.customer || null;
   }, [phoneAppts]);
 
+  // Fetch transactions for loyalty points
+  const { data: customerTransactions } = useFetch<Transaction[]>(
+    matchedCustomer?.id ? `/api/salon/transactions?customerId=${matchedCustomer.id}&from=2020-01-01&to=2026-12-31` : null
+  );
+
+  const loyaltyData = useMemo(() => {
+    if (!customerTransactions || customerTransactions.length === 0) {
+      return { points: 0, totalSpent: 0, tier: 'Bronze' as const, nextTier: 'Silver' as const, nextTierPoints: 100, progress: 0 };
+    }
+    const totalSpent = customerTransactions.reduce((s, t) => s + t.servicePrice, 0);
+    const points = Math.floor(totalSpent / 100);
+    let tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+    let nextTier: 'Silver' | 'Gold' | 'Platinum' | null;
+    let nextTierPoints: number;
+    let progress: number;
+
+    if (points >= 1000) {
+      tier = 'Platinum'; nextTier = null; nextTierPoints = 1000; progress = 100;
+    } else if (points >= 500) {
+      tier = 'Gold'; nextTier = 'Platinum'; nextTierPoints = 1000; progress = ((points - 500) / 500) * 100;
+    } else if (points >= 100) {
+      tier = 'Silver'; nextTier = 'Gold'; nextTierPoints = 500; progress = ((points - 100) / 400) * 100;
+    } else {
+      tier = 'Bronze'; nextTier = 'Silver'; nextTierPoints = 100; progress = (points / 100) * 100;
+    }
+    return { points, totalSpent, tier, nextTier, nextTierPoints, progress };
+  }, [customerTransactions]);
+
   const handleLookup = useCallback(() => {
     if (trackPhone.length >= 10) setLookupDone(true);
   }, [trackPhone]);
@@ -791,6 +819,8 @@ function CustomerAppointmentTracker() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Loyalty Points Card */}
+                <LoyaltyCard loyaltyData={loyaltyData} customerName={matchedCustomer.name} />
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{matchedCustomer.name}&apos;s Appointments</p>
                   <Button variant="ghost" size="sm" onClick={() => { setLookupDone(false); setTrackPhone(''); }} className="text-xs h-7">
@@ -835,5 +865,81 @@ function CustomerAppointmentTracker() {
         )}
       </CardContent>
     </GlassCard>
+  );
+}
+
+// ─── LOYALTY CARD ──────────────────────────────────────
+const TIER_CONFIG = {
+  Bronze: { gradient: 'from-amber-600 to-amber-800', bg: 'bg-amber-50 dark:bg-amber-950/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800', bar: 'bg-gradient-to-r from-amber-400 to-amber-600', icon: Award },
+  Silver: { gradient: 'from-gray-400 to-gray-600', bg: 'bg-gray-100 dark:bg-gray-800/30', text: 'text-gray-600 dark:text-gray-300', border: 'border-gray-300 dark:border-gray-700', bar: 'bg-gradient-to-r from-gray-300 to-gray-500', icon: Award },
+  Gold: { gradient: 'from-yellow-500 to-amber-600', bg: 'bg-yellow-50 dark:bg-yellow-950/30', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700', bar: 'bg-gradient-to-r from-yellow-400 to-amber-500', icon: Award },
+  Platinum: { gradient: 'from-violet-500 to-purple-700', bg: 'bg-violet-50 dark:bg-violet-950/30', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-300 dark:border-violet-700', bar: 'bg-gradient-to-r from-violet-400 to-purple-600', icon: Gem },
+} as const;
+
+function LoyaltyCard({ loyaltyData, customerName }: { loyaltyData: { points: number; totalSpent: number; tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum'; nextTier: string | null; nextTierPoints: number; progress: number }; customerName: string }) {
+  const config = TIER_CONFIG[loyaltyData.tier];
+  const TierIcon = config.icon;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <div className={`relative overflow-hidden rounded-xl border ${config.border} ${config.bg} backdrop-blur-md p-4`}>
+        {/* Decorative blur circle */}
+        <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full bg-gradient-to-br ${config.gradient} opacity-10 blur-2xl`} />
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-sm`}>
+                <TierIcon className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loyalty Rewards</p>
+                <p className="text-[10px] text-muted-foreground">{customerName}</p>
+              </div>
+            </div>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-gradient-to-r ${config.gradient} shadow-sm`}>
+              {loyaltyData.tier}
+            </span>
+          </div>
+          {/* Points & Spend */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="text-center">
+              <p className={`text-2xl font-bold ${config.text}`}>{loyaltyData.points.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Points</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{formatCurrency(loyaltyData.totalSpent)}</p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total Spent</p>
+            </div>
+          </div>
+          {/* Progress to next tier */}
+          {loyaltyData.nextTier && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{loyaltyData.tier}</span>
+                <span>{loyaltyData.nextTier} ({loyaltyData.nextTierPoints} pts)</span>
+              </div>
+              <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(loyaltyData.progress, 100)}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+                  className={`h-full rounded-full ${config.bar}`}
+                />
+              </div>
+              <p className="text-[9px] text-muted-foreground mt-1 text-right">
+                {loyaltyData.nextTierPoints - loyaltyData.points} points to {loyaltyData.nextTier}
+              </p>
+            </div>
+          )}
+          {loyaltyData.tier === 'Platinum' && (
+            <div className="text-center">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400">
+                <Gem className="w-3 h-3" /> Maximum tier reached!
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }

@@ -3253,3 +3253,26 @@ Stage Summary:
 | 🟢 Low | WebSocket real-time updates | High |
 | 🟢 Low | Multi-language support (Hindi/Tamil) | Medium |
 | 🟢 Low | PWA mobile app shell | High |
+
+---
+Task ID: 6-b
+Agent: feature-dev
+Task: Enhanced notification center and manager top performers
+
+Work Log:
+- Enhanced NotificationBell with tab filtering (All/Pending/Confirmed/Completed)
+- Added NotificationItem component with customer avatar, service name, category badge, time, store name, status badge
+- Added "View All" link at bottom of popover opening full NotificationCenterDialog
+- Created NotificationCenterDialog with searchable full list (last 20 appointments), filterable by status, grouped by date
+- Added click-to-detail appointment detail dialog within notification center
+- Added TopPerformersToday component to Manager view between attendance and inventory sections
+- Top performers fetches today's transactions, groups by employeeId, shows top 3 with gold/silver/bronze gradient mini cards
+- Fixed pre-existing JSX comment syntax error in employee-view.tsx
+- Used existing shadcn/ui components (Dialog, Tabs, Input, ScrollArea, Badge, Avatar, Skeleton)
+- Verified with bun run lint (zero errors)
+
+Stage Summary:
+- Notification center now has full dialog with search and filter capabilities
+- Popover shows enriched appointment items with avatars, category badges, time, and store info
+- Manager view shows top 3 performers with gold/silver/bronze styling, revenue amounts, and service counts
+- Zero lint errors

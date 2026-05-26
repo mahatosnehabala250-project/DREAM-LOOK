@@ -238,6 +238,11 @@
   100% { transform: scale(1.3); opacity: 0; }
 }
 
+@keyframes barGrow {
+  0% { transform: scaleX(0); transform-origin: left; }
+  100% { transform: scaleX(1); transform-origin: left; }
+}
+
 .animate-breathe {
   animation: breathe 2s ease-in-out infinite;
 }

@@ -529,6 +529,9 @@ export function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps)
         <StatCard icon={Target} label="This Month" value={formatCurrency(animatedMonth)} sub={`${(monthTransactions || []).length} services`} gradient="bg-gradient-to-r from-emerald-500 to-green-500" />
       </div>
 
+      {/* Weekly Performance Bar Chart */}
+      <WeeklyPerformanceChart weekTransactions={weekTransactions || []} />
+
       {/* Monthly Target */}
       <EarningsGoalTracker currentEarnings={monthEarnings} employeeRole={currentEmp?.role || 'STYLIST'} />
 
@@ -1340,6 +1343,69 @@ function EmployeePaymentHistory({ employeeId }: { employeeId: string }) {
 }
 
 // ─── DAILY EARNINGS SPARKLINE ─────────────────────────────────
+// ─── WEEKLY PERFORMANCE BAR CHART ────────────────────────
+function WeeklyPerformanceChart({ weekTransactions }: { weekTransactions: Transaction[] }) {
+  const dayData = useMemo(() => {
+    const days: Array<{ label: string; date: string; earnings: number }> = [];
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ...
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const earnings = weekTransactions
+        .filter(t => t.completedAt && t.completedAt.startsWith(dateStr))
+        .reduce((sum, t) => sum + t.employeeNetShare, 0);
+      days.push({ label: dayNames[d.getDay()], date: dateStr, earnings });
+    }
+    return days;
+  }, [weekTransactions]);
+
+  const maxEarnings = Math.max(...dayData.map(d => Math.abs(d.earnings)), 1);
+
+  return (
+    <GlassCard>
+      <CardContent className="p-4">
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
+          <BarChart3 className="w-4 h-4 text-emerald-500" />
+          Weekly Performance
+        </h3>
+        <div className="space-y-2.5">
+          {dayData.map((day) => {
+            const isPositive = day.earnings >= 0;
+            const barWidth = Math.max(Math.abs(day.earnings) / maxEarnings * 100, 2);
+            const isToday = format(new Date(), 'yyyy-MM-dd') === day.date;
+            return (
+              <div key={day.date} className="flex items-center gap-3">
+                <span className={`w-8 text-xs font-semibold text-right shrink-0 ${isToday ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+                  {day.label}
+                </span>
+                <div className="flex-1 relative h-7 bg-muted/30 dark:bg-muted/10 rounded-lg overflow-hidden">
+                  <div
+                    className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-700 ease-out animate-[barGrow_0.6s_ease-out] ${
+                      isPositive
+                        ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-sm shadow-emerald-500/20'
+                        : 'bg-gradient-to-r from-red-400 to-red-500 shadow-sm shadow-red-500/20'
+                    }`}
+                    style={{ width: `${barWidth}%` }}
+                  />
+                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold ${
+                    isPositive ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    {day.earnings === 0 ? '—' : `${isPositive ? '+' : ''}${formatCurrency(day.earnings)}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </GlassCard>
+  );
+}
+
 function DailyEarningsSparkline({ transactions }: { transactions: Transaction[] }) {
   const dailyData = useMemo(() => {
     const map = new Map<string, number>();
