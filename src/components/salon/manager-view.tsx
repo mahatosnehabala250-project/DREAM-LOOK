@@ -62,7 +62,7 @@ import {
   MobileBottomNav, NotificationBell, StatusBadge, StockIndicator,
   ErrorCard, ViewSkeleton, TableSkeleton, CardGridSkeleton, ChartSkeleton,
   GlassCard, StatCard, EmptyState, LiveClock, SectionNav, ErrorBoundary,
-  ExpenseCategoryBadge, PaymentBreakdownCard,
+  ExpenseCategoryBadge, PaymentBreakdownCard, StaggerContainer, StaggerItem,
 } from './common';
 
 function TodayVsYesterdayComparison({ storeId }: { storeId: string }) {
@@ -407,8 +407,10 @@ function ManagerCustomerSection({ storeId }: { storeId: string }) {
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
+                  <StaggerContainer className="contents">
                   <TableBody>
                     {filteredCustomers.slice(0, 20).map((customer) => (
+                      <StaggerItem key={customer.id}>
                       <TableRow key={customer.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleSelectCustomer(customer)}>
                         <TableCell>
                           <div className="flex items-center gap-2.5">
@@ -428,8 +430,10 @@ function ManagerCustomerSection({ storeId }: { storeId: string }) {
                           </Button>
                         </TableCell>
                       </TableRow>
+                      </StaggerItem>
                     ))}
                   </TableBody>
+                  </StaggerContainer>
                 </Table>
               </div>
             </ScrollArea>
@@ -2800,20 +2804,20 @@ export function StoreComparisonDashboard({ onSelectStore }: { onSelectStore?: (s
   const { data: stores } = useFetch<Store[]>('/api/salon/stores');
   const storeIds = (stores || []).map(s => s.id);
 
-  const { data: koramangala } = useFetch<AnalyticsData>(
+  const { data: store0Analytics } = useFetch<AnalyticsData>(
     storeIds[0] ? `/api/salon/analytics?storeId=${storeIds[0]}&from=${monthAgo}&to=${today}` : null
   );
-  const { data: mgRoad } = useFetch<AnalyticsData>(
+  const { data: store1Analytics } = useFetch<AnalyticsData>(
     storeIds[1] ? `/api/salon/analytics?storeId=${storeIds[1]}&from=${monthAgo}&to=${today}` : null
   );
-  const { data: whitefield } = useFetch<AnalyticsData>(
+  const { data: store2Analytics } = useFetch<AnalyticsData>(
     storeIds[2] ? `/api/salon/analytics?storeId=${storeIds[2]}&from=${monthAgo}&to=${today}` : null
   );
 
   const storeAnalytics = [
-    { store: stores?.[0], data: koramangala, gradient: STORE_GRADIENT_LIGHT[0], gradientDark: STORE_GRADIENTS[0] },
-    { store: stores?.[1], data: mgRoad, gradient: STORE_GRADIENT_LIGHT[1], gradientDark: STORE_GRADIENTS[1] },
-    { store: stores?.[2], data: whitefield, gradient: STORE_GRADIENT_LIGHT[2], gradientDark: STORE_GRADIENTS[2] },
+    { store: stores?.[0], data: store0Analytics, gradient: STORE_GRADIENT_LIGHT[0], gradientDark: STORE_GRADIENTS[0] },
+    { store: stores?.[1], data: store1Analytics, gradient: STORE_GRADIENT_LIGHT[1], gradientDark: STORE_GRADIENTS[1] },
+    { store: stores?.[2], data: store2Analytics, gradient: STORE_GRADIENT_LIGHT[2], gradientDark: STORE_GRADIENTS[2] },
   ];
 
   const maxRevenue = Math.max(...storeAnalytics.map(s => s.data?.totalRevenue || 0), 1);

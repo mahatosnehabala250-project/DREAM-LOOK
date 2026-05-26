@@ -19,11 +19,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { format, isBefore, isToday, startOfDay } from 'date-fns';
 import type { Store, Service, Employee, Appointment } from '@/lib/salon-types';
-import { useFetch } from '@/lib/salon-hooks';
+import { useFetch, useConfetti } from '@/lib/salon-hooks';
 import { formatTime, formatCurrency, getInitials, apiPost, apiPatch,
   TIME_SLOTS, SERVICE_CATEGORIES, STORE_GRADIENTS,
 } from '@/lib/salon-utils';
-import { ViewSkeleton, ErrorCard, GlassCard, EmptyState, StatusBadge } from './common';
+import { ViewSkeleton, ErrorCard, GlassCard, EmptyState, StatusBadge, StaggerContainer, StaggerItem } from './common';
 
 export function CustomerView() {
   const [bookingStep, setBookingStep] = useState(0);
@@ -37,6 +37,10 @@ export function CustomerView() {
   const [bookingComplete, setBookingComplete] = useState(false);
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [bookingLoading, setBookingLoading] = useState(false);
+  const { fire: fireConfetti, confettiElement } = useConfetti();
+
+  // Store busy status tracking
+  const [storeBusyCounts, setStoreBusyCounts] = useState<Record<string, number>>({});
 
   // API data
   const { data: stores, loading: storesLoading, error: storesError, refetch: refetchStores } = useFetch<Store[]>('/api/salon/stores');
@@ -49,6 +53,38 @@ export function CustomerView() {
       ? `/api/salon/appointments?storeId=${selectedStore}&date=${format(selectedDate, 'yyyy-MM-dd')}&employeeId=${selectedEmployeeId}`
       : null
   );
+
+  // Fetch today's appointment count per store for busy indicators
+  useEffect(() => {
+    if (!stores || stores.length === 0) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    Promise.all(
+      stores.map(s =>
+        fetch(`/api/salon/appointments?storeId=${s.id}&date=${today}`)
+          .then(r => r.ok ? r.json() : [])
+          .then((data: Appointment[]) => [s.id, data.length] as const)
+          .catch(() => [s.id, 0] as const)
+      )
+    ).then(results => {
+      const counts: Record<string, number> = {};
+      results.forEach(([id, count]) => { counts[id] = count; });
+      setStoreBusyCounts(counts);
+    });
+  }, [stores]);
+
+  // Determine least busy store for "Best availability" badge
+  const leastBusyStoreId = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 9 || hour >= 20) return null;
+    const openStores = (stores || []).filter(s => s.isActive);
+    if (openStores.length < 2) return null;
+    const counts = openStores.map(s => storeBusyCounts[s.id] ?? 0);
+    const uniqueCounts = new Set(counts);
+    if (uniqueCounts.size <= 1) return null;
+    const minCount = Math.min(...counts);
+    const leastBusy = openStores.find(s => (storeBusyCounts[s.id] ?? 0) === minCount);
+    return leastBusy?.id || null;
+  }, [stores, storeBusyCounts]);
 
   const busySlots = useMemo(() => {
     if (!storeAppointments) return new Set<string>();
@@ -99,6 +135,7 @@ export function CustomerView() {
         time: selectedTimeSlot,
       });
       setBookingComplete(true);
+      fireConfetti();
       toast.success('Appointment booked successfully!', {
         description: `We'll send a reminder to ${customerPhone}`,
       });
@@ -125,6 +162,8 @@ export function CustomerView() {
   // ─── BOOKING COMPLETE ──────────────────────────────────────
   if (bookingComplete) {
     return (
+      <>
+        {confettiElement}
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}
           className="w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-6">
@@ -145,6 +184,7 @@ export function CustomerView() {
           Book Another Appointment
         </Button>
       </div>
+      </>
     );
   }
 
@@ -204,12 +244,13 @@ export function CustomerView() {
           {storesError ? (
             <ErrorCard message="Failed to load stores" onRetry={refetchStores} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(stores || []).map((store, idx) => {
                 const borderColors = ['border-l-rose-500', 'border-l-amber-500', 'border-l-emerald-500'];
                 const iconGradients = [STORE_GRADIENTS[0], STORE_GRADIENTS[1], STORE_GRADIENTS[2]];
                 return (
-                <div key={store.id} className="hover:-translate-y-1 active:scale-[0.98] transition-transform duration-150">
+                <StaggerItem key={store.id}>
+                <div className="hover:-translate-y-1 active:scale-[0.98] transition-transform duration-150">
                   <GlassCard className={`cursor-pointer transition-all hover:shadow-xl border-l-4 ${borderColors[idx] || borderColors[0]} ${
                     selectedStore === store.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                   }`} onClick={() => { setSelectedStore(store.id); setSelectedEmployeeId(''); setSelectedTimeSlot(''); }}>
@@ -235,6 +276,14 @@ export function CustomerView() {
                             <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {store.phone}</span>
                             <span>{store.city}</span>
                           </div>
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            <StoreStatusBadge count={storeBusyCounts[store.id] ?? 0} />
+                            {leastBusyStoreId === store.id && (
+                              <Badge className="text-[10px] h-5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                                <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Best availability now
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {selectedStore === store.id && (
@@ -246,9 +295,10 @@ export function CustomerView() {
                     </CardContent>
                   </GlassCard>
                 </div>
+                </StaggerItem>
               );
               })}
-            </div>
+            </StaggerContainer>
           )}
         </div>
 
@@ -318,9 +368,10 @@ export function CustomerView() {
             ) : filteredServices.length === 0 ? (
               <EmptyState icon={Sparkles} title="No services found" description="No services match this filter" />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredServices.map((service) => (
-                  <div key={service.id} className="hover:-translate-y-0.5 active:scale-[0.98] transition-transform duration-150">
+                  <StaggerItem key={service.id}>
+                  <div className="hover:-translate-y-0.5 active:scale-[0.98] transition-transform duration-150">
                     <GlassCard className={`cursor-pointer transition-all hover:shadow-xl ${
                       selectedService === service.id ? 'ring-2 ring-rose-500 shadow-xl shadow-rose-500/10' : ''
                     }`} onClick={() => setSelectedService(service.id)}>
@@ -349,8 +400,9 @@ export function CustomerView() {
                       </CardContent>
                     </GlassCard>
                   </div>
+                  </StaggerItem>
                 ))}
-              </div>
+              </StaggerContainer>
             )}
           </div>
         )}
@@ -575,6 +627,51 @@ export function CustomerView() {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── STORE STATUS BADGE ─────────────────────────────────
+function StoreStatusBadge({ count }: { count: number }) {
+  const hour = new Date().getHours();
+  const isClosed = hour < 9 || hour >= 20;
+
+  if (isClosed) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-gray-400 dark:bg-gray-500" />
+        </span>
+        <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Closed</span>
+      </div>
+    );
+  }
+
+  let label: string;
+  let dotColor: string;
+  let textColor: string;
+
+  if (count <= 2) {
+    label = 'Open — Quiet';
+    dotColor = 'bg-emerald-400';
+    textColor = 'text-emerald-600 dark:text-emerald-400';
+  } else if (count <= 5) {
+    label = 'Open — Moderate';
+    dotColor = 'bg-amber-400';
+    textColor = 'text-amber-600 dark:text-amber-400';
+  } else {
+    label = 'Open — Busy';
+    dotColor = 'bg-rose-400';
+    textColor = 'text-rose-600 dark:text-rose-400';
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="relative flex h-1.5 w-1.5">
+        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-75`} />
+        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${dotColor}`} />
+      </span>
+      <span className={`text-[11px] font-medium ${textColor}`}>{label}</span>
     </div>
   );
 }

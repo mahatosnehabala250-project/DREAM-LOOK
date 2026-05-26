@@ -31,7 +31,7 @@ import { formatTime, formatCurrency, getInitials, calculateCommission, apiPost,
 } from '@/lib/salon-utils';
 import {
   ViewSkeleton, GlassCard, StatCard, EmptyState, StatusBadge,
-  LiveClock, SectionNav, ErrorBoundary,
+  LiveClock, SectionNav, ErrorBoundary, StaggerContainer, StaggerItem,
 } from './common';
 import { EarningsGoalTracker } from './manager-view';
 
@@ -606,12 +606,13 @@ export function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps)
           ) : !schedule || schedule.length === 0 ? (
             <EmptyState icon={Calendar} title="No appointments today" description="Your schedule is clear. Enjoy the day!" />
           ) : (
-            <div className="space-y-3">
+            <StaggerContainer className="space-y-3">
               {schedule.sort((a, b) => a.time.localeCompare(b.time)).map((apt) => {
                 const canComplete = apt.status === 'CONFIRMED' || apt.status === 'PENDING';
                 const isCompleted = apt.status === 'COMPLETED';
                 return (
-                  <div key={apt.id} className={`hover:scale-[1.005] transition-transform
+                  <StaggerItem key={apt.id}>
+                  <div className={`hover:scale-[1.005] transition-transform
                     flex items-center gap-4 p-3 rounded-xl border transition-all ${
                       isCompleted ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' :
                       'bg-card hover:shadow-md border-border'
@@ -640,9 +641,10 @@ export function EmployeeView({ onCompleteService, authUser }: EmployeeViewProps)
                       </div>
                     )}
                   </div>
+                  </StaggerItem>
                 );
               })}
-            </div>
+            </StaggerContainer>
           )}
         </CardContent>
       </Card>

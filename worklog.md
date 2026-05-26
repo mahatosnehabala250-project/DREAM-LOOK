@@ -2946,3 +2946,49 @@ The `page.tsx` had already been split into 6 component modules:
 | Employee | 9900000003 | Anitha Reddy |
 | Manager | 9900000002 | Priya Sharma |
 | Owner | 9900000001 | Rajesh Kumar |
+
+---
+Task ID: 5-a
+Agent: feature-dev
+Task: Add confetti celebration and staggered list animations
+
+Work Log:
+- Created useConfetti hook in src/lib/salon-hooks.tsx using CSS keyframe animations with 60 randomized particles (circles, rectangles, triangles) in brand colors (rose, pink, fuchsia, gold)
+- Renamed salon-hooks.ts to salon-hooks.tsx to support JSX in the confetti hook
+- Triggered confetti on booking completion in CustomerView (fires after successful API call)
+- Created StaggerContainer and StaggerItem components in src/components/salon/common.tsx using framer-motion variants with staggerChildren (0.04s delay) and fade-up (y:16px) animation
+- Applied stagger animations to store cards grid in customer-view.tsx
+- Applied stagger animations to service cards grid in customer-view.tsx
+- Applied stagger animations to today's schedule items in employee-view.tsx
+- Applied stagger animations to customer list rows in manager-view.tsx (using className="contents" for table compatibility)
+- Applied stagger animations to staff performance table rows in owner-view.tsx
+- Verified with bun run lint (zero errors)
+
+Stage Summary:
+- Confetti fires on successful booking with Dream Look brand colors (rose, pink, fuchsia, gold)
+- All major lists now have staggered waterfall entry animations
+- No new dependencies added (uses existing framer-motion)
+- Zero lint errors
+
+---
+Task ID: 5-b
+Agent: feature-dev
+Task: Add store busy indicator, footer stats, landing page polish
+
+Work Log:
+- Added `StoreStatusBadge` component showing live busy levels (Quiet/Moderate/Busy/Closed) with animated pulse dots
+- Fetches today's appointment count per store via `/api/salon/appointments?storeId={id}&date={today}`
+- Added `leastBusyStoreId` logic to highlight the least busy store with a "Best availability now" badge
+- Enhanced footer with `FooterQuickStats` component showing Today's Bookings, Open Now stores, and Staff Online counts
+- Added `card-shine` CSS animation class for hover shimmer effect on landing page cards
+- Added 3 floating animated dots per landing page card (matching card color scheme: rose, amber, emerald)
+- Improved landing page card descriptions with more detailed text
+- Added `format` import from `date-fns` and `Store, AttendanceRecord` type imports to page.tsx
+- Verified with `bun run lint` (zero errors)
+
+Stage Summary:
+- Store cards in customer booking flow now show live busy indicators with animated pulse dots
+- Least busy store automatically gets "Best availability now" emerald badge during business hours
+- Dashboard footer shows 3 live quick stats (Today's Bookings, Open Now, Staff Online)
+- Landing page login cards have premium shimmer/shine effect on hover via CSS `card-shine` class
+- Landing page cards have floating decorative dots with framer-motion animations

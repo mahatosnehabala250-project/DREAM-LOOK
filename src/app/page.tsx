@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import {
   Scissors, MapPin, Clock, ChevronRight, Search, Moon, Sun,
   Calendar, BarChart3, Building2, Crown, Sparkles, Heart,
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { Role, AuthScreen, AuthUser, Appointment, Customer, Service } from '@/lib/salon-types';
+import type { Role, AuthScreen, AuthUser, Appointment, Customer, Service, Store, AttendanceRecord } from '@/lib/salon-types';
 import { useFetch } from '@/lib/salon-hooks';
 import { formatCurrency, getInitials } from '@/lib/salon-utils';
 import {
@@ -26,6 +27,46 @@ import { CustomerView } from '@/components/salon/customer-view';
 import { EmployeeView } from '@/components/salon/employee-view';
 import { ManagerView } from '@/components/salon/manager-view';
 import { OwnerView, RecordServiceDialog } from '@/components/salon/owner-view';
+
+// ═══════════════════════════════════════════════════════════════════
+// FOOTER QUICK STATS
+// ═══════════════════════════════════════════════════════════════════
+function FooterQuickStats() {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const hour = new Date().getHours();
+  const { data: todayAppts } = useFetch<Appointment[]>(`/api/salon/appointments?date=${today}`);
+  const { data: allStores } = useFetch<Store[]>('/api/salon/stores');
+  const { data: todayAttendance } = useFetch<AttendanceRecord[]>(`/api/salon/attendance?date=${today}`);
+
+  const todayBookings = todayAppts?.length || 0;
+  const openStores = (allStores || []).filter(s => s.isActive && hour >= 9 && hour < 20).length;
+  const staffOnline = (todayAttendance || []).filter(a => a.checkIn && !a.checkOut).length;
+
+  return (
+    <div className="flex items-center justify-center gap-4 sm:gap-8 py-3">
+      <div className="flex items-center gap-1.5">
+        <Calendar className="w-3.5 h-3.5 text-muted-foreground/60" />
+        <span className="text-xs text-muted-foreground">
+          Today&apos;s Bookings: <span className="font-semibold text-foreground">{todayBookings}</span>
+        </span>
+      </div>
+      <div className="w-px h-4 bg-border" />
+      <div className="flex items-center gap-1.5">
+        <Building2 className="w-3.5 h-3.5 text-muted-foreground/60" />
+        <span className="text-xs text-muted-foreground">
+          Open Now: <span className="font-semibold text-foreground">{openStores}/3 Stores</span>
+        </span>
+      </div>
+      <div className="w-px h-4 bg-border" />
+      <div className="flex items-center gap-1.5">
+        <Users className="w-3.5 h-3.5 text-muted-foreground/60" />
+        <span className="text-xs text-muted-foreground">
+          Staff Online: <span className="font-semibold text-foreground">{staffOnline}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // MAIN PAGE COMPONENT
@@ -42,28 +83,9 @@ export default function Home() {
   const [recordCallback, setRecordCallback] = useState<(() => void) | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
-  // ─── Auth State ──────────────────────────────────────────────
-  const [authScreen, setAuthScreen] = useState<AuthScreen>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('dreamlook_auth');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          return (parsed?.screen as AuthScreen) || 'landing';
-        }
-      } catch { /* ignore */ }
-    }
-    return 'landing';
-  });
-  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dreamlook_auth');
-      if (saved) {
-        try { return JSON.parse(saved).user as AuthUser; } catch { /* ignore */ }
-      }
-    }
-    return null;
-  });
+  // ─── Auth State (defaults for SSR hydration safety) ───────
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('landing');
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   const handleLogin = useCallback(async (phone: string, role: string) => {
     try {
@@ -100,8 +122,21 @@ export default function Home() {
   const { data: searchCustomers } = useFetch<Customer[]>('/api/salon/customers');
   const { data: searchServices } = useFetch<Service[]>('/api/salon/services');
 
-  // Avoid hydration mismatch for theme-dependent rendering
-  const mounted = resolvedTheme !== undefined;
+  // Hydration-safe mounted flag (server + client both false on first render)
+  const [mounted, setMounted] = useState(false);
+
+  // Restore auth from localStorage after hydration
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dreamlook_auth');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.screen) setAuthScreen(parsed.screen as AuthScreen);
+        if (parsed?.user) setAuthUser(parsed.user as AuthUser);
+      }
+    } catch { /* ignore */ }
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -407,6 +442,9 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {/* Quick Stats Row */}
+          <FooterQuickStats />
 
           {/* Bottom row: copyright + version */}
           <Separator className="my-3" />

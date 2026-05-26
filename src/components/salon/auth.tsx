@@ -220,32 +220,35 @@ export function LandingPage({ onSelectRole, onBookAsCustomer }: {
     {
       id: 'employee-login' as AuthScreen,
       title: 'Employee',
-      subtitle: 'Access your schedule, earnings & commission',
+      subtitle: 'View your daily schedule, track earnings, calculate commissions & manage appointments',
       icon: Scissors,
       gradient: 'from-rose-500 to-pink-600',
       lightBg: 'from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30',
       shadow: 'hover:shadow-rose-500/20',
       ring: 'ring-rose-200 dark:ring-rose-800',
+      dotColor: 'bg-rose-400',
     },
     {
       id: 'manager-login' as AuthScreen,
       title: 'Manager',
-      subtitle: 'Manage appointments, staff & inventory',
+      subtitle: 'Oversee daily appointments, track staff attendance, manage inventory & monitor performance',
       icon: Building2,
       gradient: 'from-amber-500 to-orange-600',
       lightBg: 'from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30',
       shadow: 'hover:shadow-amber-500/20',
       ring: 'ring-amber-200 dark:ring-amber-800',
+      dotColor: 'bg-amber-400',
     },
     {
       id: 'owner-login' as AuthScreen,
       title: 'Owner',
-      subtitle: 'Full business analytics & settlement engine',
+      subtitle: 'Revenue analytics, store comparisons, monthly settlements & growth tracking',
       icon: Crown,
       gradient: 'from-emerald-500 to-teal-600',
       lightBg: 'from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30',
       shadow: 'hover:shadow-emerald-500/20',
       ring: 'ring-emerald-200 dark:ring-emerald-800',
+      dotColor: 'bg-emerald-400',
     },
   ];
 
@@ -315,11 +318,27 @@ export function LandingPage({ onSelectRole, onBookAsCustomer }: {
               onClick={() => onSelectRole(card.id)}
               className="group relative text-left cursor-pointer focus:outline-none"
             >
-              <Card className={`backdrop-blur-xl bg-card/60 border-border/20 shadow-lg ${card.shadow} hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-200 overflow-hidden h-full cursor-pointer`}>
+              <Card className={`backdrop-blur-xl bg-card/60 border-border/20 shadow-lg ${card.shadow} hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-200 overflow-hidden h-full cursor-pointer card-shine`}>
                 {/* Gradient accent bar */}
                 <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
-                <CardContent className="p-6 flex flex-col items-center text-center gap-4">
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-200`}>
+                <CardContent className="p-6 flex flex-col items-center text-center gap-4 relative">
+                  {/* Floating decorative dots */}
+                  <motion.div
+                    animate={{ y: [0, -6, 0], x: [0, 3, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                    className={`absolute top-6 right-5 w-2 h-2 rounded-full ${card.dotColor} opacity-30`}
+                  />
+                  <motion.div
+                    animate={{ y: [0, 4, 0], x: [0, -3, 0] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                    className={`absolute top-14 left-5 w-1.5 h-1.5 rounded-full ${card.dotColor} opacity-20`}
+                  />
+                  <motion.div
+                    animate={{ y: [0, -3, 0] }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                    className={`absolute bottom-16 right-8 w-2.5 h-2.5 rounded-full ${card.dotColor} opacity-25`}
+                  />
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-200 relative z-10`}>
                     <card.icon className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-1.5">

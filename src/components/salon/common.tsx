@@ -553,6 +553,37 @@ export function ExpenseCategoryBadge({ category }: { category: string }) {
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${config.color} ${config.bg}`}>{category}</span>;
 }
 
+// ─── STAGGER ANIMATION COMPONENTS ──────────────────────────────
+export function StaggerContainer({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.1 } },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function StaggerItem({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 16 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export function PaymentBreakdownCard({ analytics, title }: { analytics: AnalyticsData | null; title?: string }) {
   if (!analytics) return <ChartSkeleton />;
   const { totalCash, totalOnline, totalSplitCount, totalRevenue, paymentMethodBreakdown } = analytics;

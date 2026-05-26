@@ -62,7 +62,7 @@ import {
   MobileBottomNav, NotificationBell, StatusBadge, StockIndicator,
   ErrorCard, ViewSkeleton, TableSkeleton, CardGridSkeleton, ChartSkeleton,
   GlassCard, StatCard, EmptyState, LiveClock, SectionNav, ErrorBoundary,
-  ExpenseCategoryBadge, PaymentBreakdownCard,
+  ExpenseCategoryBadge, PaymentBreakdownCard, StaggerContainer, StaggerItem,
 } from './common';
 import { OwnerCustomerAnalyticsSection } from './manager-view';
 import type { CustomerAnalyticsData } from './manager-view';
@@ -434,9 +434,11 @@ export function OwnerView() {
                     <TableHead className="text-right">Avg/Service</TableHead>
                   </TableRow>
                 </TableHeader>
+                <StaggerContainer className="contents">
                 <TableBody>
                   {(yearAnalytics || monthAnalytics)!.employeePerformance.map((emp, i) => (
-                    <TableRow key={emp.employeeId} className="hover:bg-muted/50 transition-colors">
+                    <StaggerItem key={emp.employeeId}>
+                    <TableRow className="hover:bg-muted/50 transition-colors">
                       <TableCell>
                         {i === 0 ? <Crown className="w-4 h-4 text-amber-500" /> : <span className="text-muted-foreground text-sm">{i + 1}</span>}
                       </TableCell>
@@ -448,8 +450,10 @@ export function OwnerView() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(emp.avgPerTransaction)}</TableCell>
                     </TableRow>
+                    </StaggerItem>
                   ))}
                 </TableBody>
+                </StaggerContainer>
               </Table>
             </div>
           )}

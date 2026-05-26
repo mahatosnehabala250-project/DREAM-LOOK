@@ -301,3 +301,40 @@
 .dark .table-scroll-container::-webkit-scrollbar-thumb {
   background: rgba(244, 63, 94, 0.3);
 }
+
+/* Landing card shine effect on hover */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+.card-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 80%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+.card-shine:hover::after {
+  animation: cardShine 0.7s ease-out forwards;
+}
+@keyframes cardShine {
+  0% { left: -100%; }
+  100% { left: 150%; }
+}
+.dark .card-shine::after {
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 80%
+  );
+}
