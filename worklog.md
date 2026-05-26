@@ -2838,3 +2838,49 @@ The `page.tsx` had already been split into 6 component modules:
 - `3c22b7c` fix: add middleware to bypass Vercel CDN cache
 
 ### Production URL: https://dream-look-nu.vercel.app/ ✅ Working
+
+---
+
+## Critical Bug Fix: TDZ + Missing Import + Build Failure - 2026-05-26
+
+### Task: Fix "Cannot access 'selectedService' before initialization" error on Vercel production
+
+### User Report
+"same problem-Something went wrong - Cannot access 'selectedService' before initialization - Reload Page"
+
+### Root Causes Found (3 bugs)
+
+| # | Bug | File | Root Cause | Fix |
+|---|-----|------|------------|-----|
+| 1 | **TDZ Error** | `src/components/salon/employee-view.tsx:1299` | `selectedService` was accessed on line 1299 (used in `servicePrice` calculation) but declared on line 1305 (via `activeServices.find()`) | Moved `activeServices`, `filteredServices`, and `selectedService` declarations BEFORE `servicePrice`, `splitRemaining`, `splitValid` |
+| 2 | **Missing Import** | `src/components/salon/manager-view.tsx:1232` | `Footprints` icon from lucide-react was used in `ManagerQuickActionsFAB` component but not imported | Added `Footprints` to the lucide-react import list on line 17 |
+| 3 | **Build Failure** | `src/app/api/salon/expenses/[id]/route.ts` | Route imported from `@/lib/firestore` → `@/lib/firebase` which called `admin.initializeApp()` at module level. Firebase env vars not set during Vercel build → build crash | Rewrote route to use Prisma (`db.expense`) like all other API routes. Also made `firebase.ts` use lazy initialization via Proxy objects |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/components/salon/employee-view.tsx` | Reordered declarations: moved `activeServices`, `filteredServices`, `selectedService` before `servicePrice`/`splitRemaining`/`splitValid` |
+| `src/components/salon/manager-view.tsx` | Added `Footprints` to lucide-react imports |
+| `src/app/api/salon/expenses/[id]/route.ts` | Rewrote to use Prisma `db.expense` instead of Firestore `deleteDoc`/`updateDoc`/`getDoc` |
+| `src/lib/firebase.ts` | Changed from immediate `admin.initializeApp()` to lazy Proxy-based initialization |
+
+### Commits
+1. `b4f11a1` - "Fix TDZ: selectedService used before declaration, add missing Footprints import"
+2. `63411f4` - "Fix Vercel build: use Prisma for expenses/[id], lazy Firebase init"
+
+### Verification (agent-browser on live Vercel)
+
+| Test | Result | Details |
+|------|--------|---------|
+| Landing page load | ✅ Pass | No "Something went wrong" error |
+| Employee login (9900000003) | ✅ Pass | "Welcome back, Anitha Reddy! 👋" |
+| Manager login (9900000002) | ✅ Pass | "Managing Dream Look - MG Road" + "Welcome, Priya Sharma! 👋" |
+| Owner login (9900000001) | ✅ Pass | "Rajesh Kumar" / "Owner" with all tabs visible |
+| Lint | ✅ Pass | Zero errors, zero warnings |
+| Vercel deployment | ✅ Ready | SHA: 63411f4 |
+
+### Key Learnings
+1. **TDZ errors in React**: Variables declared with `const`/`let` used before their declaration in the same scope cause "Cannot access X before initialization". Unlike function declarations, `const`/`let` are NOT hoisted.
+2. **Missing lucide-react imports**: Not caught by TypeScript/lint because the component using the icon may be lazily loaded. Always verify icon usage matches imports after refactoring.
+3. **Firebase module-level init**: `admin.initializeApp()` at module top-level crashes during Vercel build if env vars are missing. Use lazy initialization (Proxy or function wrapper) to defer until runtime.
